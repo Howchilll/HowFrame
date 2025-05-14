@@ -1,0 +1,7 @@
+0.先用nuget得到缺失的库文件
+1.改变配置文件后最好去 Application.persistentDataPath 删一下 之前存档
+2.音效存于Resources/Sounds
+3.音乐存于StreamingAssets/Music
+3.UI面板预制体存于Resources/UI
+4.原有的main camera改变后 要 Set新的maincamera
+5.后处理的部分 不支持bulit in 管线，要自己更改项目渲染管线才能用上后处理
