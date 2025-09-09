@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 
 public static class SceneLoadAssistant
 {
+
     public static float LoadValue = 0f;
     public static bool ChangeSign = false;
     private static GameObject _sceneLoadManager = null;
