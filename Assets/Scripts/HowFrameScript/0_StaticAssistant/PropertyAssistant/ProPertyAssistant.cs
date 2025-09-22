@@ -49,20 +49,3 @@ public static class PropertyAssistant<T>
     }
 }
 
-public class Ref<T>
-{
-    private T _value;
-    public event Action<T> OnChanged;
-
-    public T Value
-    {
-        get => _value;
-        set
-        {
-            _value = value;
-            OnChanged?.Invoke(_value); // 无论是否相等，都触发
-        }
-    }
-
-    public Ref(T value = default) => _value = value;
-}
