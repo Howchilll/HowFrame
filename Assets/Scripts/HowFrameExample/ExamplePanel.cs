@@ -2,7 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
-
+using HowFrame;
 public class ExamplePanel : PanelBase
 {
     [SerializeField] private TMP_Text HP;
@@ -37,12 +37,12 @@ public class ExamplePanel : PanelBase
     }
     
     
-    protected internal override void WhenShow()
+    protected  override void WhenShow()
     {
         TextLangCheck();
     }
 
-    protected internal override void WhenHide()
+    protected  override void WhenHide()
     {
        "PanelHide".Log();
     }

@@ -1,11 +1,10 @@
 using UnityEngine;
-
+using HowFrame;
 public class InputCheck 
 {
     public  InputCheck()
     {
-        DataManager.GlobalLoad();
-        DataManager.ArchiveLoad();
+
    
     }
     
@@ -34,17 +33,17 @@ public class InputCheck
         {
             ArchiveData.Hp++;
             EventAssistant.Invoke("HPChange");
-            DataManager.ArchiveSave();
+
         }
 
         if (Input.GetKeyDown(KeyAssistant.Keys["CameraEffectTest1"]))
         {
-           CameraEffect.Shake();
+//CameraEffect.Shake();
         }
 
         if (Input.GetKeyDown(KeyAssistant.Keys["CameraEffectTest2"]))
         {
-           CameraEffect.SetVignette(5);
+           //CameraEffect.SetVignette(5);
         }
 
         if (Input.GetKeyDown(KeyAssistant.Keys["UIShow"]))
