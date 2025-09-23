@@ -1,7 +1,33 @@
-namespace HowFrameScript._4_HowClass.HowEvent.Once
+using System;
+using System.Collections.Generic;
+
+
+public class OnceEvent<TArg, TResult>
 {
-    public class OnceEvent
+    private Func<TArg, TResult> _func;
+
+    public Func<TArg, TResult> Func
     {
-        
+        get => _func;
+        set => _func = value;
     }
+
+    public (TResult LastResult, List<TResult> AllResults) Invoke(TArg arg)
+    {
+        var temp = _func;
+        _func = null;
+
+        if (temp == null)
+            return (default!, new List<TResult>());
+
+        var results = new List<TResult>();
+        foreach (Func<TArg, TResult> f in temp.GetInvocationList())
+        {
+            results.Add(f(arg));
+        }
+
+        return (results[^1], results);
+    }
+
+    public bool IsInvoked => _func == null;
 }
