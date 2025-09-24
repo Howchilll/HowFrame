@@ -37,11 +37,15 @@ public static class PropertyAssistant<T>
             obj.OnChanged += entry.Callback;
     }
 
-    public static void Remove(string key)
+public static void Remove(string key)
+{
+    if (_dict.TryGetValue(key, out var entry))
     {
-        if (_dict.ContainsKey(key))
-            _dict.Remove(key);
+        if (entry.Obj != null && entry.Callback != null)
+            entry.Obj.OnChanged -= entry.Callback; // 解绑
+        _dict.Remove(key);
     }
+}
 
     public static void ClearAll()
     {
