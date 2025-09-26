@@ -1,0 +1,16 @@
+﻿{
+    "Namespace": "HowFrame",
+    "ClassName": "HowPathTest",
+    "JsonDir": "Assets/Config/",
+    "CsDir": "Assets/HowFrame/HowPath",
+    "Entries": [
+        {
+            "Key": "Path1",
+            "Value": "\"Assets/SomePath\""
+        },
+        {
+            "Key": "Path2",
+            "Value": "\"Assets/SomePath2\""
+        }
+    ]
+}

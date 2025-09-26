@@ -9,7 +9,7 @@ public class PropertyTest : MonoBehaviour
         
 
         // 注册事件
-        PropertyAssistant<int>.SetEvent("hp", (num) =>
+        PropertyAssistant.SetEvent<int>("hp", (num) =>
         {
             num.Log();
         });

@@ -8,7 +8,7 @@ public class PropertyTest1 : MonoBehaviour
     {
          hp = new Ref<int>();
         // 绑定变量
-        PropertyAssistant<int>.SetObj("hp", hp);
+        PropertyAssistant.SetObj<int>("hp", hp);
 
     }
 

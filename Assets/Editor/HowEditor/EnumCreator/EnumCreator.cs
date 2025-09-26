@@ -3,7 +3,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 
-public class EnumCreater : EditorWindow
+public class EnumCreator : EditorWindow
 {
     private EnumRoot root = new EnumRoot();
 
@@ -14,15 +14,15 @@ public class EnumCreater : EditorWindow
 
     private Vector2 scrollPos;
 
-    [MenuItem("Tools/Json Collection Editor")]
+    [MenuItem("Tools/EnumCreator")]
     public static void ShowWindow()
     {
-        var window = GetWindow<EnumCreater>("Json Collection Editor");
+        var window = GetWindow<EnumCreator>("Json Collection Editor");
 
         // EditorPrefs 恢复
-        window.enumNamespace = EditorPrefs.GetString("EnumCreater_Namespace", "HowEnum");
-        window.jsonOutputDir = EditorPrefs.GetString("EnumCreater_JsonOutputDir", "Assets/JsonData");
-        window.csOutputDir = EditorPrefs.GetString("EnumCreater_CSOutputDir", "Assets/GeneratedEnum");
+        window.enumNamespace = EditorPrefs.GetString("EnumCreator_Namespace", "HowEnum");
+        window.jsonOutputDir = EditorPrefs.GetString("EnumCreator_JsonOutputDir", "Assets/JsonData");
+        window.csOutputDir = EditorPrefs.GetString("EnumCreator_CSOutputDir", "Assets/GeneratedEnum");
     }
 
     private void OnGUI()
@@ -45,9 +45,9 @@ public class EnumCreater : EditorWindow
         csOutputDir = EditorGUILayout.TextField("C# 输出路径", csOutputDir);
 
         // 保存到 EditorPrefs
-        EditorPrefs.SetString("EnumCreater_Namespace", enumNamespace);
-        EditorPrefs.SetString("EnumCreater_JsonOutputDir", jsonOutputDir);
-        EditorPrefs.SetString("EnumCreater_CSOutputDir", csOutputDir);
+        EditorPrefs.SetString("EnumCreator_Namespace", enumNamespace);
+        EditorPrefs.SetString("EnumCreator_JsonOutputDir", jsonOutputDir);
+        EditorPrefs.SetString("EnumCreator_CSOutputDir", csOutputDir);
 
         // 元素编辑器
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
