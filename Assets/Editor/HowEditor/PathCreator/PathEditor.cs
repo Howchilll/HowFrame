@@ -15,23 +15,35 @@ public static class PathEditor
 
         Type type = null;
 
-        // ÔÚËùÓĞÒÑ¼ÓÔØ³ÌĞò¼¯ÀïÕÒÀàĞÍ
         foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
         {
+            // å…ˆå°è¯•å®Œæ•´åŒ¹é…
             type = asm.GetType(typeName);
+            if (type != null) break;
+
+            // å¦‚æœç”¨æˆ·æ²¡å†™å‘½åç©ºé—´ï¼Œå°±åœ¨ç¨‹åºé›†é‡ŒæœåŒåç±»
+            foreach (var t in asm.GetTypes())
+            {
+                if (t.Name == typeName)
+                {
+                    type = t;
+                    break;
+                }
+            }
+
             if (type != null) break;
         }
 
         if (type == null)
         {
-            UnityEngine.Debug.LogError("ÕÒ²»µ½ÀàĞÍ: " + typeName);
+            UnityEngine.Debug.LogError("æ‰¾ä¸åˆ°ç±»å‹: " + typeName);
             return null;
         }
 
         var field = type.GetField(fieldName, BindingFlags.Public | BindingFlags.Static);
         if (field == null)
         {
-            UnityEngine.Debug.LogError($"ÕÒ²»µ½×Ö¶Î: {fieldName} in {typeName}");
+            UnityEngine.Debug.LogError($"æ‰¾ä¸åˆ°å­—æ®µ: {fieldName} in {type.FullName}");
             return null;
         }
 

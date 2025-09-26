@@ -19,11 +19,12 @@ public class PathCreator : EditorWindow
     {
         public string Namespace = "HowFrame";
         public string ClassName = "HowPath";
-        public string JsonDir = "Assets/Config/";   // json目录，可用参数索引
-        public string CsDir = "Assets/Scripts/Generated/"; // cs目录，可用参数索引
+        public string JsonDir = "Assets/Config/";
+        public string CsDir = "Assets/Scripts/Generated/";
         public List<PathEntry> Entries = new List<PathEntry>();
     }
 
+    private const string EditorPrefsKey = "PathCreator_Config"; // 唯一Key
     private PathConfig config = new PathConfig();
     private Vector2 scrollPos;
 
@@ -31,6 +32,23 @@ public class PathCreator : EditorWindow
     public static void ShowWindow()
     {
         GetWindow<PathCreator>("Path Creator");
+    }
+
+    private void OnEnable()
+    {
+        // 打开窗口时加载持久化数据
+        if (EditorPrefs.HasKey(EditorPrefsKey))
+        {
+            string json = EditorPrefs.GetString(EditorPrefsKey);
+            config = JsonUtility.FromJson<PathConfig>(json) ?? new PathConfig();
+        }
+    }
+
+    private void OnDisable()
+    {
+        // 窗口关闭时保存持久化数据
+        string json = JsonUtility.ToJson(config);
+        EditorPrefs.SetString(EditorPrefsKey, json);
     }
 
     private void OnGUI()
@@ -80,7 +98,6 @@ public class PathCreator : EditorWindow
         }
     }
 
-    // 判断目录路径是否为参数索引，是则解析真实路径
     private string ResolvePath(string pathSetting)
     {
         if (!string.IsNullOrEmpty(pathSetting) && pathSetting.Contains("."))
@@ -120,7 +137,6 @@ public class PathCreator : EditorWindow
     private void GenerateCsFile()
     {
         var sb = new StringBuilder();
-
         bool hasNamespace = !string.IsNullOrEmpty(config.Namespace);
 
         if (hasNamespace)
@@ -135,8 +151,6 @@ public class PathCreator : EditorWindow
         foreach (var entry in config.Entries)
         {
             if (string.IsNullOrEmpty(entry.Key)) continue;
-
-            // 直接输出用户写的值，不做动态替换
             sb.AppendLine($"        public static readonly string {entry.Key} = {entry.Value};");
         }
 

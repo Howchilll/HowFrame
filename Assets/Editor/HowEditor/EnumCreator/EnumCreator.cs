@@ -7,12 +7,13 @@ public class EnumCreator : EditorWindow
 {
     private EnumRoot root = new EnumRoot();
 
-    // 可编辑的命名空间和输出路径（可以写索引糖）
     private string enumNamespace = "HowEnum";
     private string jsonOutputDir = "Assets/JsonData";
     private string csOutputDir = "Assets/GeneratedEnum";
-
     private Vector2 scrollPos;
+
+    // 配置文件存放路径（固定存到 Editor 下，避免和导出 json 混淆）
+    private static string EditorConfigPath => "Assets/Editor/HowEditor/EnumCreator/EnumCreatorConfig.json";
 
     [MenuItem("Tools/Enum Creator")]
     public static void ShowWindow()
@@ -23,13 +24,20 @@ public class EnumCreator : EditorWindow
         window.enumNamespace = EditorPrefs.GetString("EnumCreator_Namespace", "HowEnum");
         window.jsonOutputDir = EditorPrefs.GetString("EnumCreator_JsonOutputDir", "Assets/JsonData");
         window.csOutputDir = EditorPrefs.GetString("EnumCreator_CSOutputDir", "Assets/GeneratedEnum");
+
+        // 自动加载配置
+        window.LoadEditorConfig();
+    }
+
+    private void OnDisable()
+    {
+        SaveEditorConfig(); // 窗口关闭时保存 root
     }
 
     private void OnGUI()
     {
         GUILayout.Label("JSON 集合编辑器", EditorStyles.boldLabel);
 
-        // 集合名字 + 加载按钮
         GUILayout.BeginHorizontal();
         root.collectionName = EditorGUILayout.TextField("集合名字", root.collectionName);
         if (GUILayout.Button("加载", GUILayout.Width(60)))
@@ -38,7 +46,6 @@ public class EnumCreator : EditorWindow
         }
         GUILayout.EndHorizontal();
 
-        // 命名空间 + 输出路径
         GUILayout.Label("C# Enum 生成参数", EditorStyles.boldLabel);
         enumNamespace = EditorGUILayout.TextField("命名空间", enumNamespace);
         jsonOutputDir = EditorGUILayout.TextField("JSON 输出路径", jsonOutputDir);
@@ -49,41 +56,43 @@ public class EnumCreator : EditorWindow
         EditorPrefs.SetString("EnumCreator_JsonOutputDir", jsonOutputDir);
         EditorPrefs.SetString("EnumCreator_CSOutputDir", csOutputDir);
 
-        // 元素编辑器
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
         DrawElements(root.elements, 0);
         EditorGUILayout.EndScrollView();
 
-        // 按钮
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("一键导出 JSON + C# 脚本"))
         {
-            if (string.IsNullOrEmpty(root.collectionName))
-            {
-                Debug.LogWarning("请先填写集合名字，生成类名将使用集合名字！");
-                return;
-            }
-
-            // --- 写 JSON ---
-            string resolvedJsonDir = ResolveDir(jsonOutputDir);
-            if (!Directory.Exists(resolvedJsonDir))
-                Directory.CreateDirectory(resolvedJsonDir);
-
-            string jsonPath = Path.Combine(resolvedJsonDir, root.collectionName + ".json");
-            string json = EnumHelper.Serialize(root);
-            File.WriteAllText(jsonPath, json);
-            Debug.Log("JSON 已保存到: " + jsonPath);
-
-            // --- 生成 C# 脚本 ---
-            string resolvedCsDir = ResolveDir(csOutputDir);
-            if (!Directory.Exists(resolvedCsDir))
-                Directory.CreateDirectory(resolvedCsDir);
-
-            EnumGenerater.Generate(root, enumNamespace, root.collectionName, resolvedCsDir);
-            Debug.Log("C# Enum 脚本已生成到: " + resolvedCsDir);
+            ExportAll();
         }
         GUILayout.EndHorizontal();
+
         AssetDatabase.Refresh();
+    }
+
+    private void ExportAll()
+    {
+        if (string.IsNullOrEmpty(root.collectionName))
+        {
+            Debug.LogWarning("请先填写集合名字，生成类名将使用集合名字！");
+            return;
+        }
+
+        string resolvedJsonDir = ResolveDir(jsonOutputDir);
+        if (!Directory.Exists(resolvedJsonDir))
+            Directory.CreateDirectory(resolvedJsonDir);
+
+        string jsonPath = Path.Combine(resolvedJsonDir, root.collectionName + ".json");
+        string json = EnumHelper.Serialize(root);
+        File.WriteAllText(jsonPath, json);
+        Debug.Log("JSON 已保存到: " + jsonPath);
+
+        string resolvedCsDir = ResolveDir(csOutputDir);
+        if (!Directory.Exists(resolvedCsDir))
+            Directory.CreateDirectory(resolvedCsDir);
+
+        EnumGenerater.Generate(root, enumNamespace, root.collectionName, resolvedCsDir);
+        Debug.Log("C# Enum 脚本已生成到: " + resolvedCsDir);
     }
 
     private void LoadJson()
@@ -101,7 +110,6 @@ public class EnumCreator : EditorWindow
         Debug.Log("JSON 已加载: " + path);
     }
 
-    // 解析目录路径：如果有 '.' 就当作索引调用 PathEditor.FindPath
     private string ResolveDir(string dir)
     {
         if (!string.IsNullOrEmpty(dir) && dir.Contains("."))
@@ -110,14 +118,33 @@ public class EnumCreator : EditorWindow
             if (string.IsNullOrEmpty(resolved))
             {
                 Debug.LogError($"目录索引解析失败: {dir}");
-                return dir; // 回退到原始字符串
+                return dir;
             }
             return resolved;
         }
         return dir;
     }
 
-    // DrawElements 保持之前实现（支持折叠和嵌套）
+    // --- 编辑器持久化 ---
+    private void SaveEditorConfig()
+    {
+        string json = EnumHelper.Serialize(root);
+        string dir = Path.GetDirectoryName(EditorConfigPath);
+        if (!Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        File.WriteAllText(EditorConfigPath, json);
+    }
+
+    private void LoadEditorConfig()
+    {
+        if (!File.Exists(EditorConfigPath)) return;
+
+        string json = File.ReadAllText(EditorConfigPath);
+        root = EnumHelper.Deserialize(json);
+    }
+
+    // DrawElements 保持不变
     private void DrawElements(List<EnumElement> elements, int depth)
     {
         int removeIndex = -1;
@@ -133,7 +160,6 @@ public class EnumCreator : EditorWindow
             GUILayout.BeginHorizontal();
             GUILayout.Space(depth * 20);
 
-            // 是否集合
             elem.isList = EditorGUILayout.Toggle(elem.isList, GUILayout.Width(20));
 
             if (!elem.isList)

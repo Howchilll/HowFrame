@@ -1,0 +1,24 @@
+﻿{
+    "Namespace": "HowFrame",
+    "ClassName": "EditorPath",
+    "JsonDir": "EditorPath.PathJson",
+    "CsDir": "EditorPath.PathCs",
+    "Entries": [
+        {
+            "Key": "EnumJson",
+            "Value": "\"Assets/Editor/HowEditorConfig/EnumConfig\""
+        },
+        {
+            "Key": "EnumCs",
+            "Value": "\"Assets/HowFrame/HowEnum/Enums\""
+        },
+        {
+            "Key": "PathJson",
+            "Value": "\"Assets/Editor/HowEditorConfig/PathConfig\""
+        },
+        {
+            "Key": "PathCs",
+            "Value": "\"Assets/HowFrame/HowPath\""
+        }
+    ]
+}
