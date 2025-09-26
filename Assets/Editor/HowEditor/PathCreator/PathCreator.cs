@@ -19,8 +19,8 @@ public class PathCreator : EditorWindow
     {
         public string Namespace = "HowFrame";
         public string ClassName = "HowPath";
-        public string JsonDir = "Assets/Config/";   // json目录
-        public string CsDir = "Assets/Scripts/Generated/"; // cs目录
+        public string JsonDir = "Assets/Config/";   // json目录，可用参数索引
+        public string CsDir = "Assets/Scripts/Generated/"; // cs目录，可用参数索引
         public List<PathEntry> Entries = new List<PathEntry>();
     }
 
@@ -80,13 +80,23 @@ public class PathCreator : EditorWindow
         }
     }
 
-    private string GetJsonPath() => Path.Combine(config.JsonDir, config.ClassName + ".json");
-    private string GetCsPath() => Path.Combine(config.CsDir, config.ClassName + ".cs");
+    // 判断目录路径是否为参数索引，是则解析真实路径
+    private string ResolvePath(string pathSetting)
+    {
+        if (!string.IsNullOrEmpty(pathSetting) && pathSetting.Contains("."))
+        {
+            return PathEditor.FindPath(pathSetting);
+        }
+        return pathSetting;
+    }
+
+    private string GetJsonPath() => Path.Combine(ResolvePath(config.JsonDir), config.ClassName + ".json");
+    private string GetCsPath() => Path.Combine(ResolvePath(config.CsDir), config.ClassName + ".cs");
 
     private void SaveConfig()
     {
         string jsonPath = GetJsonPath();
-        Directory.CreateDirectory(config.JsonDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(jsonPath));
         string json = JsonUtility.ToJson(config, true);
         File.WriteAllText(jsonPath, json, Encoding.UTF8);
         AssetDatabase.Refresh();
@@ -110,22 +120,35 @@ public class PathCreator : EditorWindow
     private void GenerateCsFile()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("namespace " + config.Namespace);
-        sb.AppendLine("{");
+
+        bool hasNamespace = !string.IsNullOrEmpty(config.Namespace);
+
+        if (hasNamespace)
+        {
+            sb.AppendLine("namespace " + config.Namespace);
+            sb.AppendLine("{");
+        }
+
         sb.AppendLine("    public static class " + config.ClassName);
         sb.AppendLine("    {");
 
         foreach (var entry in config.Entries)
         {
             if (string.IsNullOrEmpty(entry.Key)) continue;
+
+            // 直接输出用户写的值，不做动态替换
             sb.AppendLine($"        public static readonly string {entry.Key} = {entry.Value};");
         }
 
         sb.AppendLine("    }");
-        sb.AppendLine("}");
+
+        if (hasNamespace)
+        {
+            sb.AppendLine("}");
+        }
 
         string csPath = GetCsPath();
-        Directory.CreateDirectory(config.CsDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(csPath));
         File.WriteAllText(csPath, sb.ToString(), Encoding.UTF8);
         AssetDatabase.Refresh();
         Debug.Log("已生成 C# 文件: " + csPath);
