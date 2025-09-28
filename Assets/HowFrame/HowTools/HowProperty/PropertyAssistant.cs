@@ -1,88 +1,167 @@
 using System;
 using System.Collections.Generic;
+using HowEnum;
 
-public static class PropertyAssistant
+namespace HowFrame
 {
-    private abstract class EntryBase
+    public static class PropertyAssistant
     {
-        public abstract void Unbind();
-    }
-
-    private class Entry<T> : EntryBase
-    {
-        public Ref<T> Obj;
-        public Action<T> Callback;
-
-        public override void Unbind()
+        private abstract class EntryBase
         {
-            if (Obj != null && Callback != null)
-                Obj.OnChanged -= Callback;
-        }
-    }
-
-    private static readonly Dictionary<string, EntryBase> _dict = new Dictionary<string, EntryBase>();
-
-    // 链式绑定代理
-    public class BindHelper<T>
-    {
-        private readonly string _key;
-        public BindHelper(string key) { _key = key; }
-
-        public void OnChange(Action<T> callback)
-        {
-            SetEvent<T>(_key, callback);
-        }
-    }
-
-    public static void SetEvent<T>(string key, Action<T> callback)
-    {
-        if (!_dict.TryGetValue(key, out var baseEntry))
-        {
-            baseEntry = new Entry<T>();
-            _dict[key] = baseEntry;
+            public abstract void Unbind();
         }
 
-        var entry = (Entry<T>)baseEntry;
-        entry.Callback = callback;
-
-        if (entry.Obj != null)
-            entry.Obj.OnChanged += callback;
-    }
-
-    public static BindHelper<T> SetObj<T>(string key, Ref<Object> Obj)
-    {
-        if (!(Obj is Ref<T> obj))
-            throw new InvalidCastException($"SetObj 类型不匹配：key={key}, T={typeof(T)}, 实际={Obj.GetType()}");
-
-        if (!_dict.TryGetValue(key, out var baseEntry))
+        private class Entry<T> : EntryBase
         {
-            baseEntry = new Entry<T>();
-            _dict[key] = baseEntry;
+            public Ref<T> Obj;
+            public Action<T> Callback;
+
+            public override void Unbind()
+            {
+                if (Obj != null && Callback != null)
+                    Obj.OnChanged -= Callback;
+            }
         }
 
-        var entry = (Entry<T>)baseEntry;
-        entry.Obj = obj;
+        private static readonly Dictionary<string, EntryBase> _dict = new Dictionary<string, EntryBase>();
 
-        if (entry.Callback != null)
-            obj.OnChanged += entry.Callback;
+        private static readonly Dictionary<EnumKeyBase, EntryBase> _enumDict = new Dictionary<EnumKeyBase, EntryBase>();
 
-        return new BindHelper<T>(key);
-    }
-
-    public static void Remove(string key)
-    {
-        if (_dict.TryGetValue(key, out var entry))
+        // 链式绑定代理
+        public class BindHelper<T>
         {
-            entry.Unbind();
-            _dict.Remove(key);
+            private readonly string _key;
+
+            public BindHelper(string key)
+            {
+                _key = key;
+            }
+
+            public void OnChange(Action<T> callback)
+            {
+                SetEvent<T>(_key, callback);
+            }
         }
-    }
 
-    public static void ClearAll()
-    {
-        foreach (var e in _dict.Values)
-            e.Unbind();
+        public static void SetEvent<T>(string key, Action<T> callback)
+        {
+            if (!_dict.TryGetValue(key, out var baseEntry))
+            {
+                baseEntry = new Entry<T>();
+                _dict[key] = baseEntry;
+            }
 
-        _dict.Clear();
+            var entry = (Entry<T>)baseEntry;
+            entry.Callback = callback;
+
+            if (entry.Obj != null)
+                entry.Obj.OnChanged += callback;
+        }
+
+        public static BindHelper<T> SetObj<T>(string key, Ref<Object> Obj)
+        {
+            if (!(Obj is Ref<T> obj))
+                throw new InvalidCastException($"SetObj 类型不匹配：key={key}, T={typeof(T)}, 实际={Obj.GetType()}");
+
+            if (!_dict.TryGetValue(key, out var baseEntry))
+            {
+                baseEntry = new Entry<T>();
+                _dict[key] = baseEntry;
+            }
+
+            var entry = (Entry<T>)baseEntry;
+            entry.Obj = obj;
+
+            if (entry.Callback != null)
+                obj.OnChanged += entry.Callback;
+
+            return new BindHelper<T>(key);
+        }
+
+        public static void Remove(string key)
+        {
+            if (_dict.TryGetValue(key, out var entry))
+            {
+                entry.Unbind();
+                _dict.Remove(key);
+            }
+        }
+
+        public static void ClearAll()
+        {
+            foreach (var e in _dict.Values)
+                e.Unbind();
+
+            _dict.Clear();
+
+            foreach (var e in _enumDict.Values)
+                e.Unbind();
+
+            _enumDict.Clear();
+        }
+
+        // ----------- EnumKeyBase 版本 -----------
+
+        // 链式绑定代理
+        public class EnumBindHelper<T>
+        {
+            private readonly EnumKeyBase _key;
+
+            public EnumBindHelper(EnumKeyBase key)
+            {
+                _key = key;
+            }
+
+            public void OnChange(Action<T> callback)
+            {
+                SetEvent(_key, callback);
+            }
+        }
+
+        public static void SetEvent<T>(EnumKeyBase key, Action<T> callback)
+        {
+            if (!_enumDict.TryGetValue(key, out var baseEntry))
+            {
+                baseEntry = new Entry<T>();
+                _enumDict[key] = baseEntry;
+            }
+
+            var entry = (Entry<T>)baseEntry;
+            entry.Callback = callback;
+
+            if (entry.Obj != null)
+                entry.Obj.OnChanged += callback;
+        }
+
+        public static EnumBindHelper<T> SetObj<T>(EnumKeyBase key, Ref<object> Obj)
+        {
+            if (!(Obj is Ref<T> obj))
+                throw new InvalidCastException($"SetObj 类型不匹配：key={key}, T={typeof(T)}, 实际={Obj.GetType()}");
+
+            if (!_enumDict.TryGetValue(key, out var baseEntry))
+            {
+                baseEntry = new Entry<T>();
+                _enumDict[key] = baseEntry;
+            }
+
+            var entry = (Entry<T>)baseEntry;
+            entry.Obj = obj;
+
+            if (entry.Callback != null)
+                obj.OnChanged += entry.Callback;
+
+            return new EnumBindHelper<T>(key);
+        }
+
+        public static void Remove(EnumKeyBase key)
+        {
+            if (_enumDict.TryGetValue(key, out var entry))
+            {
+                entry.Unbind();
+                _enumDict.Remove(key);
+            }
+        }
+
+
     }
 }

@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
+using HowEnum;
 
 namespace HowFrame
 {
-    public class PropertyAssistant
+    public class PropertyHelper
     {
         private abstract class EntryBase
         {
@@ -27,10 +28,10 @@ namespace HowFrame
         // 链式绑定代理
         public class BindHelper<T>
         {
-            private readonly PropertyAssistant _assistant;
+            private readonly PropertyHelper _assistant;
             private readonly string _key;
 
-            public BindHelper(PropertyAssistant assistant, string key)
+            public BindHelper(PropertyHelper assistant, string key)
             {
                 _assistant = assistant;
                 _key = key;
@@ -90,8 +91,90 @@ namespace HowFrame
         {
             foreach (var e in _dict.Values)
                 e.Unbind();
+            foreach (var e in _enumDict.Values)
+                e.Unbind();
 
+            _enumDict.Clear();
             _dict.Clear();
         }
+        
+        
+            private readonly Dictionary<EnumKeyBase, EntryBase> _enumDict = new Dictionary<EnumKeyBase, EntryBase>();
+
+        // 链式绑定代理（枚举版）
+        public class EnumBindHelper<T>
+        {
+            private readonly PropertyHelper _assistant;
+            private readonly EnumKeyBase _key;
+
+            public EnumBindHelper(PropertyHelper assistant, EnumKeyBase key)
+            {
+                _assistant = assistant;
+                _key = key;
+            }
+
+            public void OnChange(Action<T> callback)
+            {
+                _assistant.SetEvent(_key, callback);
+            }
+        }
+
+        // 设置事件（枚举 key 版）
+        public void SetEvent<T>(EnumKeyBase key, Action<T> callback)
+        {
+            if (!_enumDict.TryGetValue(key, out var baseEntry))
+            {
+                baseEntry = new Entry<T>();
+                _enumDict[key] = baseEntry;
+            }
+
+            var entry = (Entry<T>)baseEntry;
+            entry.Callback = callback;
+
+            if (entry.Obj != null)
+                entry.Obj.OnChanged += callback;
+        }
+
+        // 设置对象（枚举 key 版）
+        public EnumBindHelper<T> SetObj<T>(EnumKeyBase key, Ref<object> Obj)
+        {
+            if (!(Obj is Ref<T> obj))
+                throw new InvalidCastException($"SetObj 类型不匹配：key={key}, T={typeof(T)}, 实际={Obj.GetType()}");
+
+            if (!_enumDict.TryGetValue(key, out var baseEntry))
+            {
+                baseEntry = new Entry<T>();
+                _enumDict[key] = baseEntry;
+            }
+
+            var entry = (Entry<T>)baseEntry;
+            entry.Obj = obj;
+
+            if (entry.Callback != null)
+                obj.OnChanged += entry.Callback;
+
+            return new EnumBindHelper<T>(this, key);
+        }
+
+        // 移除绑定（枚举 key 版）
+        public void Remove(EnumKeyBase key)
+        {
+            if (_enumDict.TryGetValue(key, out var baseEntry))
+            {
+                baseEntry.Unbind();
+                _enumDict.Remove(key);
+            }
+        }
+
+        ~PropertyHelper()
+        {
+            ClearAll();
+        }
     }
+        
+        
 }
+    
+    
+    
+

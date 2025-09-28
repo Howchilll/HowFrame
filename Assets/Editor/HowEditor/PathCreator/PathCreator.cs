@@ -79,10 +79,23 @@ public class PathCreator : EditorWindow
 
         EditorGUILayout.EndScrollView();
 
+        GUILayout.Space(10);
+
+        // 添加字段 + 一键清空按钮
+        EditorGUILayout.BeginHorizontal();
         if (GUILayout.Button("添加字段"))
         {
             config.Entries.Add(new PathEntry() { Key = "Path1", Value = "\"Assets/SomePath\"" });
         }
+
+        if (GUILayout.Button("清空所有字段"))
+        {
+            if (EditorUtility.DisplayDialog("确认清空", "是否要清空所有字段？此操作不可撤销。", "清空", "取消"))
+            {
+                config.Entries.Clear();
+            }
+        }
+        EditorGUILayout.EndHorizontal();
 
         GUILayout.Space(10);
 
@@ -97,6 +110,7 @@ public class PathCreator : EditorWindow
             LoadConfig();
         }
     }
+
 
     private string ResolvePath(string pathSetting)
     {

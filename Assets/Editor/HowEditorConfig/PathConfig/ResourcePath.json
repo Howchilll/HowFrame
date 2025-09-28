@@ -1,0 +1,20 @@
+﻿{
+    "Namespace": "",
+    "ClassName": "ResourcePath",
+    "JsonDir": "EditorPath.PathJson",
+    "CsDir": "EditorPath.PathCs",
+    "Entries": [
+        {
+            "Key": "Audio",
+            "Value": "\"Assets/SomePath\""
+        },
+        {
+            "Key": "Texctue",
+            "Value": "\"Assets/SomePath\""
+        },
+        {
+            "Key": "Model",
+            "Value": "\"Assets/SomePath\""
+        }
+    ]
+}

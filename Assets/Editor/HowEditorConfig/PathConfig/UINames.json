@@ -1,0 +1,20 @@
+﻿{
+    "Namespace": "",
+    "ClassName": "UINames",
+    "JsonDir": "EditorPath.PathJson",
+    "CsDir": "EditorPath.PathCs",
+    "Entries": [
+        {
+            "Key": "MenuPanel",
+            "Value": "\"MenuPanel\""
+        },
+        {
+            "Key": "InGamePanel",
+            "Value": "\"InGamePanel\""
+        },
+        {
+            "Key": "TestPanel",
+            "Value": "\"TestPanel\""
+        }
+    ]
+}

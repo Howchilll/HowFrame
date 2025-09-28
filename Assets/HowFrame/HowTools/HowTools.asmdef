@@ -2,7 +2,9 @@
     "name": "HowTools",
     "rootNamespace": "",
     "references": [
-        "GUID:6c4e5c62133dd21469570ffda40cd65c"
+        "GUID:6c4e5c62133dd21469570ffda40cd65c",
+        "GUID:0019ae5976e94f347a7130455a33206c",
+        "GUID:437e65f0099fa524eadd6f1286fa20e0"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

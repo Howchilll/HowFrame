@@ -23,8 +23,9 @@ public class OnceEvent<TArg, TResult>
             return (default!, new List<TResult>());
 
         var results = new List<TResult>();
-        foreach (Func<TArg, TResult> f in temp.GetInvocationList())
+        foreach (var @delegate in temp.GetInvocationList())
         {
+            var f = (Func<TArg, TResult>)@delegate;
             results.Add(f(arg));
         }
 

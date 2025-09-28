@@ -1,187 +1,156 @@
-using System.Collections.Generic;
-using UnityEngine;
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using HowEnum;
+
 namespace HowFrame
 {
-
-public static class CoroutineAssistant
-{
-    private static readonly Dictionary<string, Coroutine> _coroutines = new();
-    private static readonly FakeMono Runner;
-    
-    static CoroutineAssistant()
+    public static class CoroutineAssistant
     {
-        var go = new GameObject("[CoroutineAssistant]");
-        UnityEngine.Object.DontDestroyOnLoad(go);
-        Runner = go.AddComponent<FakeMono>();
-    }
+        private static readonly Dictionary<string, Coroutine> _coroutines = new();
+        private static readonly Dictionary<EnumKeyBase, Coroutine> _enumCoroutines = new();
+        private static readonly FakeMono Runner;
 
-    public static void StartLoop(string name, float interval, Action onTick, Action onStart = null)
-    {
-        if (_coroutines.TryGetValue(name, out Coroutine existing))
+        static CoroutineAssistant()
         {
-            Runner.StopCoroutine(existing);
+            var go = new GameObject("[CoroutineAssistant]");
+            UnityEngine.Object.DontDestroyOnLoad(go);
+            Runner = go.AddComponent<FakeMono>();
         }
 
-        Coroutine coroutine = Runner.StartCoroutine(RunLoop(interval, onTick, onStart));
-        _coroutines[name] = coroutine;
-    }
-    public static void StartLoop(string name, int loopCount, float interval, Action onLoop, Action onStart = null, Action onComplete = null)
-    {
-        if (_coroutines.TryGetValue(name, out Coroutine existing))
+        #region String Key Versions
+
+        public static void StartLoop(string name, float interval, Action onTick, Action onStart = null)
         {
-            Runner.StopCoroutine(existing);
+            Stop(name);
+            Coroutine coroutine = Runner.StartCoroutine(RunLoop(interval, onTick, onStart, name, _coroutines));
+            _coroutines[name] = coroutine;
         }
 
-        Coroutine coroutine =
-            Runner.StartCoroutine(LoopCoroutine(name, loopCount, interval, onLoop, onStart, onComplete));
-        _coroutines[name] = coroutine;
-    }
-    public static void StartLoopUnscaled(string name, float interval, Action onTick, Action onStart = null, Action onComplete = null)
-    {
-        if (_coroutines.TryGetValue(name, out Coroutine existing))
+        public static void StartLoop(string name, int loopCount, float interval, Action onLoop, Action onStart = null, Action onComplete = null)
         {
-            Runner.StopCoroutine(existing);
+            Stop(name);
+            Coroutine coroutine = Runner.StartCoroutine(LoopCoroutine(name, loopCount, interval, onLoop, onStart, onComplete, _coroutines));
+            _coroutines[name] = coroutine;
         }
 
-        Coroutine coroutine = Runner.StartCoroutine(RunLoopUnscaled(interval, onTick, onStart, onComplete));
-        _coroutines[name] = coroutine;
-    }
-    public static void StartLoopUnscaled(string name, int loopCount, float interval, Action onLoop, Action onStart = null, Action onComplete = null)
-    {
-        if (_coroutines.TryGetValue(name, out Coroutine existing))
+        public static void Stop(string name)
         {
-            Runner.StopCoroutine(existing);
-        }
-
-        Coroutine coroutine = Runner.StartCoroutine(LoopCoroutineUnscaled(name, loopCount, interval, onLoop, onStart, onComplete));
-        _coroutines[name] = coroutine;
-    }
-    public static void Stop(string name)
-    {
-        if (_coroutines.TryGetValue(name, out Coroutine coroutine))
-        {
-            if (Runner != null)
+            if (_coroutines.TryGetValue(name, out Coroutine coroutine))
             {
-                Runner.StopCoroutine(coroutine);
+                if (Runner != null) Runner.StopCoroutine(coroutine);
+                _coroutines.Remove(name);
             }
-            _coroutines.Remove(name);
         }
 
-    }
-    public static void StartIterate<T>(string name, IEnumerable<T> collection, float interval, Action<T> onItem, Action onStart = null, Action onComplete = null)
-    {
-        if (_coroutines.TryGetValue(name, out var existing))
+        public static void DelayInvoke(string name, float delay, Action onComplete)
         {
-            Runner.StopCoroutine(existing);
+            Stop(name);
+            if (delay <= 0f) delay = Time.deltaTime;
+            Coroutine coroutine = Runner.StartCoroutine(DelayCoroutine(name, delay, onComplete, _coroutines));
+            _coroutines[name] = coroutine;
         }
 
-        var coroutine = Runner.StartCoroutine(IterateCoroutine(name, collection, interval, onItem, onStart, onComplete));
-        _coroutines[name] = coroutine;
-    }
-    public static void DelayInvoke(string name, float delay, Action onComplete)
-    {
-        if (_coroutines.TryGetValue(name, out Coroutine existing))
+        #endregion
+
+        #region EnumKeyBase Versions
+
+        public static void StartLoop(EnumKeyBase key, float interval, Action onTick, Action onStart = null)
         {
-            Runner.StopCoroutine(existing);
-            _coroutines.Remove(name);
+            Stop(key);
+            Coroutine coroutine = Runner.StartCoroutine(RunLoop(interval, onTick, onStart, key, _enumCoroutines));
+            _enumCoroutines[key] = coroutine;
         }
-        if (delay <= 0f)
-            delay = Time.deltaTime; // 延迟一帧
 
-        Coroutine coroutine = Runner.StartCoroutine(DelayCoroutine(name, delay, onComplete));
-        _coroutines[name] = coroutine;
-    }
-    public static void DelayInvokeRealtime(string name, float delay, Action onComplete)
-    {
-        if (_coroutines.TryGetValue(name, out Coroutine existing))
+        public static void StartLoop(EnumKeyBase key, int loopCount, float interval, Action onLoop, Action onStart = null, Action onComplete = null)
         {
-            Runner.StopCoroutine(existing);
-            _coroutines.Remove(name);
+            Stop(key);
+            Coroutine coroutine = Runner.StartCoroutine(LoopCoroutine(key, loopCount, interval, onLoop, onStart, onComplete, _enumCoroutines));
+            _enumCoroutines[key] = coroutine;
         }
 
-        if (delay <= 0f)
-            delay = Time.unscaledDeltaTime; // 延迟一帧，使用真实时间间隔
-
-        Coroutine coroutine = Runner.StartCoroutine(DelayCoroutineRealtime(name, delay, onComplete));
-        _coroutines[name] = coroutine;
-    }
-
-    
-    private static IEnumerator DelayCoroutineRealtime(string name, float delay, Action onComplete)
-    {
-        yield return new WaitForSecondsRealtime(delay);
-        onComplete?.Invoke();
-        _coroutines.Remove(name);
-    }
-    private static IEnumerator DelayCoroutine(string name, float delay, Action onComplete)
-    {
-        yield return new WaitForSeconds(delay);
-        onComplete?.Invoke();
-        _coroutines.Remove(name);
-    }
-    private static IEnumerator IterateCoroutine<T>(string name, IEnumerable<T> collection, float interval, Action<T> onItem, Action onStart, Action onComplete)
-    {
-        onStart?.Invoke();
-
-        foreach (var item in collection)
+        public static void Stop(EnumKeyBase key)
         {
-            onItem?.Invoke(item);
-            yield return new WaitForSeconds(interval);
+            if (_enumCoroutines.TryGetValue(key, out Coroutine coroutine))
+            {
+                if (Runner != null) Runner.StopCoroutine(coroutine);
+                _enumCoroutines.Remove(key);
+            }
         }
 
-        onComplete?.Invoke();
-        _coroutines.Remove(name);
-    }
-    private static IEnumerator LoopCoroutine(string name, int loopCount, float interval, Action onLoop, Action onStart, Action onComplete)
-    {
-        onStart?.Invoke();
-
-        for (int i = 0; i < loopCount; i++)
+        public static void DelayInvoke(EnumKeyBase key, float delay, Action onComplete)
         {
-            onLoop?.Invoke();
-            yield return new WaitForSeconds(interval);
+            Stop(key);
+            if (delay <= 0f) delay = Time.deltaTime;
+            Coroutine coroutine = Runner.StartCoroutine(DelayCoroutine(key, delay, onComplete, _enumCoroutines));
+            _enumCoroutines[key] = coroutine;
         }
 
-        onComplete?.Invoke();
-        _coroutines.Remove(name);
-    }
-    private static IEnumerator RunLoop(float interval, Action onTick, Action onStart)
-    {
-        onStart?.Invoke();
-        while (true)
-        {
-            onTick?.Invoke();
-            yield return new WaitForSeconds(interval);
-        }
-    }
-    private static IEnumerator RunLoopUnscaled(float interval, Action onTick, Action onStart, Action onComplete)
-    {
-        onStart?.Invoke();
-        var wait = new WaitForSecondsRealtime(interval);
-        while (true)
-        {
-            onTick?.Invoke();
-            yield return wait;
-        }
-    }
-    private static IEnumerator LoopCoroutineUnscaled(string name, int loopCount, float interval, Action onLoop, Action onStart, Action onComplete)
-    {
-        onStart?.Invoke();
-        var wait = new WaitForSecondsRealtime(interval);
+        #endregion
 
-        for (int i = 0; i < loopCount; i++)
+        #region Core Coroutines
+
+        private static IEnumerator RunLoop(float interval, Action onTick, Action onStart, string name, Dictionary<string, Coroutine> dict)
         {
-            onLoop?.Invoke();
-            yield return wait;
+            onStart?.Invoke();
+            while (true)
+            {
+                onTick?.Invoke();
+                yield return new WaitForSeconds(interval);
+            }
         }
 
-        onComplete?.Invoke();
-        _coroutines.Remove(name);
+        private static IEnumerator RunLoop(float interval, Action onTick, Action onStart, EnumKeyBase key, Dictionary<EnumKeyBase, Coroutine> dict)
+        {
+            onStart?.Invoke();
+            while (true)
+            {
+                onTick?.Invoke();
+                yield return new WaitForSeconds(interval);
+            }
+        }
+
+        private static IEnumerator LoopCoroutine(string name, int loopCount, float interval, Action onLoop, Action onStart, Action onComplete, Dictionary<string, Coroutine> dict)
+        {
+            onStart?.Invoke();
+            for (int i = 0; i < loopCount; i++)
+            {
+                onLoop?.Invoke();
+                yield return new WaitForSeconds(interval);
+            }
+            onComplete?.Invoke();
+            dict.Remove(name);
+        }
+
+        private static IEnumerator LoopCoroutine(EnumKeyBase key, int loopCount, float interval, Action onLoop, Action onStart, Action onComplete, Dictionary<EnumKeyBase, Coroutine> dict)
+        {
+            onStart?.Invoke();
+            for (int i = 0; i < loopCount; i++)
+            {
+                onLoop?.Invoke();
+                yield return new WaitForSeconds(interval);
+            }
+            onComplete?.Invoke();
+            dict.Remove(key);
+        }
+
+        private static IEnumerator DelayCoroutine(string name, float delay, Action onComplete, Dictionary<string, Coroutine> dict)
+        {
+            yield return new WaitForSeconds(delay);
+            onComplete?.Invoke();
+            dict.Remove(name);
+        }
+
+        private static IEnumerator DelayCoroutine(EnumKeyBase key, float delay, Action onComplete, Dictionary<EnumKeyBase, Coroutine> dict)
+        {
+            yield return new WaitForSeconds(delay);
+            onComplete?.Invoke();
+            dict.Remove(key);
+        }
+
+        #endregion
+
+        private class FakeMono : MonoBehaviour { }
     }
-    private class FakeMono : MonoBehaviour
-    {
-    }
-}
 }

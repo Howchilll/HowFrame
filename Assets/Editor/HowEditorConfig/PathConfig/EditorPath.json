@@ -1,5 +1,5 @@
 ﻿{
-    "Namespace": "HowFrame",
+    "Namespace": "",
     "ClassName": "EditorPath",
     "JsonDir": "EditorPath.PathJson",
     "CsDir": "EditorPath.PathCs",
@@ -18,7 +18,7 @@
         },
         {
             "Key": "PathCs",
-            "Value": "\"Assets/HowFrame/HowPath\""
+            "Value": "\"Assets/HowFrame/HowPath/Paths\""
         }
     ]
 }

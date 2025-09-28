@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using HowEnum;
+using HowFrame;
 
 public class Ref<T>
 {
@@ -29,9 +31,58 @@ public class Ref<T>
         }
     }
 
-    public Ref(T value = default) => _value = value;
-    
+    // ---------------- 构造函数：可赋值 ----------------
+    public Ref(T initialValue= default)
+    {
+        _value = initialValue;
+    }
+
+    // ---------------- 构造函数：绑定 string key ----------------
+    public Ref(string key, Action<T> callback, PropertyHelper helper = null)
+    {
+        _value = default;
+
+        if (helper != null)
+            helper.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+        else
+            PropertyAssistant.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+    }
+
+    // ---------------- 构造函数：绑定 EnumKeyBase key ----------------
+    public Ref(EnumKeyBase key, Action<T> callback, PropertyHelper helper = null)
+    {
+        _value = default;
+
+        if (helper != null)
+            helper.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+        else
+            PropertyAssistant.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+    }
     // 创建计算属性
+    
+    public Ref(T value,string key, Action<T> callback, PropertyHelper helper = null)
+    {
+        _value = value;
+
+        if (helper != null)
+            helper.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+        else
+            PropertyAssistant.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+    }
+
+    // ---------------- 构造函数：绑定 EnumKeyBase key ----------------
+    public Ref(T value,EnumKeyBase key, Action<T> callback, PropertyHelper helper = null)
+    {
+        _value = value;
+
+        if (helper != null)
+            helper.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+        else
+            PropertyAssistant.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+    }
+    // 创建计算属性
+    
+    
     public static Ref<T> Computed(Func<T> computer)
     {
         var computedRef = new Ref<T>();

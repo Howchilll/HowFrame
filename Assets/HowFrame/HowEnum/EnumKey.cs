@@ -1,5 +1,7 @@
 namespace HowEnum
 {
-    public record EnumKey<TTag> { }
+    public record EnumKeyBase{}
+    
+    public record EnumKey<TTag>: EnumKeyBase{ }
 
 }
