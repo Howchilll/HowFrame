@@ -25,3 +25,18 @@ internal struct ArchiveConfig
     public float MaxHP;
 }
 }
+
+
+
+public struct ArchiveRecord
+{
+    public float Hp;
+    public float Mp;
+
+    public ArchiveRecord(float hp, float mp)
+    {
+        Hp = hp;
+        Mp = hp;
+    
+    }
+}

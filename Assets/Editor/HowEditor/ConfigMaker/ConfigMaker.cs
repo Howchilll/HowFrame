@@ -1,183 +1,175 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using UnityEditor;
 using UnityEngine;
-using Unity.Plastic.Newtonsoft.Json;
-using Unity.Plastic.Newtonsoft.Json.Linq;
+using UnityEditor;
+using System.Collections.Generic;
 
 public class ConfigMaker : EditorWindow
 {
-    private string typeName = "";
-    private string saveDir = "Assets/Config/";
-    private string fileName = "NewConfig.json";
+    private enum TypeKind { Struct, Class, Record }
+    private enum FieldKind { Int, Float, String, Bool, List, Dictionary, Custom }
 
-    private Type targetType;
-    private JObject jsonObject; // 当前编辑数据
-    private Vector2 scrollPos;
+    [System.Serializable]
+    private class FieldDef
+    {
+        public FieldKind FieldType;
+        public string TypeName = "int"; // 默认
+        public string FieldName = "field";
+    }
 
-    [MenuItem("Tools/ConfigMaker")]
+    private string className = "NewType";
+    private TypeKind typeKind = TypeKind.Struct;
+    private bool hasBase = false;
+    private string baseType = "";
+    private List<FieldDef> fields = new List<FieldDef>();
+
+    [MenuItem("Tools/Config Maker")]
     public static void ShowWindow()
     {
-        GetWindow<ConfigMaker>("ConfigMaker");
+        GetWindow<ConfigMaker>("Config Maker");
     }
 
-    private void OnGUI()
-    {
-        GUILayout.Label("配置生成器", EditorStyles.boldLabel);
-
-        typeName = EditorGUILayout.TextField("类名 / 结构体名", typeName);
-        saveDir = EditorGUILayout.TextField("保存目录", saveDir);
-        fileName = EditorGUILayout.TextField("文件名", fileName);
-
-        EditorGUILayout.Space();
-
-        if (GUILayout.Button("加载类型"))
-        {
-            LoadType();
-        }
-
-        if (jsonObject != null)
-        {
-            EditorGUILayout.Space();
-            scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-            DrawJsonEditor(jsonObject, targetType);
-            EditorGUILayout.EndScrollView();
-
-            EditorGUILayout.Space();
-            if (GUILayout.Button("保存 JSON"))
-            {
-                SaveJson();
-            }
-        }
-    }
-
-    private void LoadType()
-    {
-        if (string.IsNullOrEmpty(typeName))
-        {
-            Debug.LogError("请输入类名或结构体名");
-            return;
-        }
-
-        targetType = AppDomain.CurrentDomain.GetAssemblies()
-            .SelectMany(a => a.GetTypes())
-            .FirstOrDefault(t => t.Name == typeName || t.FullName == typeName);
-
-        if (targetType == null)
-        {
-            Debug.LogError($"未找到类型: {typeName}");
-            return;
-        }
-
-        // 创建空实例
-        var instance = Activator.CreateInstance(targetType);
-        string json = JsonConvert.SerializeObject(instance, Formatting.Indented);
-        jsonObject = JObject.Parse(json);
-    }
-
-    private void SaveJson()
-    {
-        Directory.CreateDirectory(saveDir);
-        string path = Path.Combine(saveDir, fileName);
-        File.WriteAllText(path, jsonObject.ToString(Formatting.Indented));
-        AssetDatabase.Refresh();
-        Debug.Log($"✅ 已生成 JSON: {path}");
-    }
-
- private Dictionary<string, bool> foldouts = new Dictionary<string, bool>();
-
-private void DrawJsonEditor(JObject jObject, Type type, string parentKey = "")
+private void OnGUI()
 {
-    foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
-    {
-        JToken token = jObject[field.Name];
-        Type fieldType = field.FieldType;
-        string foldoutKey = parentKey + "." + field.Name;
+    // 顶部类型选择
+    typeKind = (TypeKind)EditorGUILayout.EnumPopup("Kind", typeKind);
 
-        // 嵌套类或者List用折叠
-        if (fieldType.IsClass && fieldType != typeof(string))
+    // 类名
+    className = EditorGUILayout.TextField("Name", className);
+
+    // 继承父类（仅 Class 和 Record 才能继承）
+    if (typeKind != TypeKind.Struct)
+    {
+        hasBase = EditorGUILayout.Toggle("Has Base", hasBase);
+        if (hasBase)
         {
-            if (!foldouts.ContainsKey(foldoutKey)) foldouts[foldoutKey] = true;
-            foldouts[foldoutKey] = EditorGUILayout.Foldout(foldouts[foldoutKey], field.Name);
-            if (foldouts[foldoutKey])
-            {
-                EditorGUI.indentLevel++;
-                if (fieldType.IsGenericType && fieldType.GetGenericTypeDefinition() == typeof(List<>))
-                {
-                    Type elementType = fieldType.GetGenericArguments()[0];
-                    JArray array = token as JArray ?? new JArray();
-                    jObject[field.Name] = DrawJsonArray(array, elementType, foldoutKey);
-                }
-                else
-                {
-                    JObject nestedObj = token as JObject ?? new JObject();
-                    jObject[field.Name] = nestedObj;
-                    DrawJsonEditor(nestedObj, fieldType, foldoutKey);
-                }
-                EditorGUI.indentLevel--;
-            }
+            baseType = EditorGUILayout.TextField("Base Type", baseType);
         }
+    }
+
+    EditorGUILayout.Space();
+
+    // 字段列表
+    EditorGUILayout.LabelField("Fields", EditorStyles.boldLabel);
+
+    int removeIndex = -1;
+    for (int i = 0; i < fields.Count; i++)
+    {
+        var f = fields[i];
+        EditorGUILayout.BeginHorizontal();
+
+        // 类型选择
+        FieldKind prevKind = f.FieldType;
+        f.FieldType = (FieldKind)EditorGUILayout.EnumPopup(f.FieldType, GUILayout.Width(100));
+
+        // 自定义类型选中时重置类型名
+        if (f.FieldType == FieldKind.Custom && prevKind != FieldKind.Custom)
+        {
+            f.TypeName = "";
+        }
+
+        // 类型输入/显示，自适应宽度
+        switch (f.FieldType)
+        {
+            case FieldKind.Int:
+            case FieldKind.Float:
+            case FieldKind.String:
+            case FieldKind.Bool:
+                f.TypeName = f.FieldType.ToString().ToLower();
+                EditorGUILayout.LabelField(f.TypeName, GUILayout.ExpandWidth(true));
+                break;
+            case FieldKind.List:
+                f.TypeName = EditorGUILayout.TextField(
+                    f.TypeName.StartsWith("List<") ? f.TypeName : "List<?>",
+                    GUILayout.ExpandWidth(true));
+                break;
+            case FieldKind.Dictionary:
+                f.TypeName = EditorGUILayout.TextField(
+                    f.TypeName.StartsWith("Dictionary<") ? f.TypeName : "Dictionary<?,?>",
+                    GUILayout.ExpandWidth(true));
+                break;
+            case FieldKind.Custom:
+                f.TypeName = EditorGUILayout.TextField(f.TypeName, GUILayout.ExpandWidth(true));
+                break;
+        }
+
+        // 字段名输入框，自适应宽度
+        f.FieldName = EditorGUILayout.TextField(f.FieldName, GUILayout.ExpandWidth(true));
+
+        // 删除按钮
+        if (GUILayout.Button("X", GUILayout.Width(25)))
+        {
+            removeIndex = i;
+        }
+
+        EditorGUILayout.EndHorizontal();
+    }
+
+    // 延迟删除
+    if (removeIndex >= 0)
+    {
+        fields.RemoveAt(removeIndex);
+    }
+
+    // 添加字段按钮
+    if (GUILayout.Button("Add Field"))
+    {
+        fields.Add(new FieldDef());
+    }
+
+    GUILayout.FlexibleSpace(); // 推到最底部
+
+    // 生成代码按钮
+    if (GUILayout.Button("Generate Code", GUILayout.Height(30)))
+    {
+        GenerateCode();
+    }
+}
+
+
+    private void GenerateCode()
+    {
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+
+        // 类/struct/record 定义
+        string kindWord = typeKind.ToString().ToLower();
+        if (hasBase && typeKind != TypeKind.Struct)
+            sb.AppendLine($"public {kindWord} {className} : {baseType}");
         else
+            sb.AppendLine($"public {kindWord} {className}");
+
+        sb.AppendLine("{");
+
+        // 字段
+        foreach (var f in fields)
         {
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField(field.Name, GUILayout.Width(150));
-            // 基础类型处理
-            if (fieldType == typeof(string))
-                jObject[field.Name] = EditorGUILayout.TextField(token?.ToString() ?? "");
-            else if (fieldType == typeof(int))
-                jObject[field.Name] = EditorGUILayout.IntField(token?.ToObject<int>() ?? 0);
-            else if (fieldType == typeof(float))
-                jObject[field.Name] = EditorGUILayout.FloatField(token?.ToObject<float>() ?? 0f);
-            else if (fieldType == typeof(bool))
-                jObject[field.Name] = EditorGUILayout.Toggle(token?.ToObject<bool>() ?? false);
-            EditorGUILayout.EndHorizontal();
+            sb.AppendLine($"    public {f.TypeName} {UpperFirst(f.FieldName)};");
         }
-    }
-}
+        sb.AppendLine();
 
-private JArray DrawJsonArray(JArray array, Type elementType, string parentKey)
-{
-    if (!foldouts.ContainsKey(parentKey)) foldouts[parentKey] = true;
-    foldouts[parentKey] = EditorGUILayout.Foldout(foldouts[parentKey], $"List<{elementType.Name}> [{array.Count}]");
-    if (foldouts[parentKey])
-    {
-        EditorGUI.indentLevel++;
-        int newCount = EditorGUILayout.IntField("Size", array.Count);
-        while (newCount > array.Count) array.Add(elementType.IsClass ? new JObject() : JToken.FromObject(Activator.CreateInstance(elementType)));
-        while (newCount < array.Count) array.RemoveAt(array.Count - 1);
-
-        for (int i = 0; i < array.Count; i++)
+        // 构造函数
+        sb.Append($"    public {className}(");
+        for (int i = 0; i < fields.Count; i++)
         {
-            JToken token = array[i];
-            string itemKey = parentKey + "." + i;
-
-            if (elementType.IsClass && elementType != typeof(string))
-            {
-                JObject nestedObj = token as JObject ?? new JObject();
-                array[i] = nestedObj;
-                DrawJsonEditor(nestedObj, elementType, itemKey);
-            }
-            else
-            {
-                EditorGUILayout.BeginHorizontal();
-                EditorGUILayout.LabelField($"[{i}]", GUILayout.Width(30));
-                if (elementType == typeof(string))
-                    array[i] = EditorGUILayout.TextField(token?.ToString() ?? "");
-                else if (elementType == typeof(int))
-                    array[i] = EditorGUILayout.IntField(token?.ToObject<int>() ?? 0);
-                else if (elementType == typeof(float))
-                    array[i] = EditorGUILayout.FloatField(token?.ToObject<float>() ?? 0f);
-                else if (elementType == typeof(bool))
-                    array[i] = EditorGUILayout.Toggle(token?.ToObject<bool>() ?? false);
-                EditorGUILayout.EndHorizontal();
-            }
+            var f = fields[i];
+            sb.Append($"{f.TypeName} {LowerFirst(f.FieldName)}");
+            if (i < fields.Count - 1)
+                sb.Append(", ");
         }
-        EditorGUI.indentLevel--;
+        sb.AppendLine(")");
+        sb.AppendLine("    {");
+        foreach (var f in fields)
+        {
+            sb.AppendLine($"        {UpperFirst(f.FieldName)} = {LowerFirst(f.FieldName)};");
+        }
+        sb.AppendLine("    }");
+
+        sb.AppendLine("}");
+
+        Debug.Log(sb.ToString());
     }
-    return array;
-}
+
+    private string UpperFirst(string s) =>
+        string.IsNullOrEmpty(s) ? s : char.ToUpper(s[0]) + s.Substring(1);
+
+    private string LowerFirst(string s) =>
+        string.IsNullOrEmpty(s) ? s : char.ToLower(s[0]) + s.Substring(1);
 }
