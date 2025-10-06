@@ -18,16 +18,14 @@ namespace HowFrame
 
             public override void Unbind()
             {
-                if (Obj != null && Callback != null)
-                    Obj.OnChanged -= Callback;
+                if (Obj != null && Callback != null) Obj.OnChanged -= Callback;
             }
         }
 
         private static readonly Dictionary<string, EntryBase> _dict = new Dictionary<string, EntryBase>();
 
-        private static readonly Dictionary<EnumKeyBase, EntryBase> _enumDict = new Dictionary<EnumKeyBase, EntryBase>();
+        private static readonly Dictionary<EnumKeyBase, EntryBase>_enumDict = new Dictionary<EnumKeyBase, EntryBase>(); // 链式绑定代理
 
-        // 链式绑定代理
         public class BindHelper<T>
         {
             private readonly string _key;
@@ -53,16 +51,11 @@ namespace HowFrame
 
             var entry = (Entry<T>)baseEntry;
             entry.Callback = callback;
-
-            if (entry.Obj != null)
-                entry.Obj.OnChanged += callback;
+            if (entry.Obj != null) entry.Obj.OnChanged += callback;
         }
 
-        public static BindHelper<T> SetObj<T>(string key, Ref<Object> Obj)
+        public static BindHelper<T> SetObj<T>(string key, Ref<T> obj)
         {
-            if (!(Obj is Ref<T> obj))
-                throw new InvalidCastException($"SetObj 类型不匹配：key={key}, T={typeof(T)}, 实际={Obj.GetType()}");
-
             if (!_dict.TryGetValue(key, out var baseEntry))
             {
                 baseEntry = new Entry<T>();
@@ -71,10 +64,7 @@ namespace HowFrame
 
             var entry = (Entry<T>)baseEntry;
             entry.Obj = obj;
-
-            if (entry.Callback != null)
-                obj.OnChanged += entry.Callback;
-
+            if (entry.Callback != null) obj.OnChanged += entry.Callback;
             return new BindHelper<T>(key);
         }
 
@@ -89,20 +79,12 @@ namespace HowFrame
 
         public static void ClearAll()
         {
-            foreach (var e in _dict.Values)
-                e.Unbind();
-
+            foreach (var e in _dict.Values) e.Unbind();
             _dict.Clear();
-
-            foreach (var e in _enumDict.Values)
-                e.Unbind();
-
+            foreach (var e in _enumDict.Values) e.Unbind();
             _enumDict.Clear();
-        }
+        } // ----------- EnumKeyBase 版本 ----------- // 链式绑定代理
 
-        // ----------- EnumKeyBase 版本 -----------
-
-        // 链式绑定代理
         public class EnumBindHelper<T>
         {
             private readonly EnumKeyBase _key;
@@ -128,16 +110,11 @@ namespace HowFrame
 
             var entry = (Entry<T>)baseEntry;
             entry.Callback = callback;
-
-            if (entry.Obj != null)
-                entry.Obj.OnChanged += callback;
+            if (entry.Obj != null) entry.Obj.OnChanged += callback;
         }
 
-        public static EnumBindHelper<T> SetObj<T>(EnumKeyBase key, Ref<object> Obj)
+        public static EnumBindHelper<T> SetObj<T>(EnumKeyBase key, Ref<T> obj)
         {
-            if (!(Obj is Ref<T> obj))
-                throw new InvalidCastException($"SetObj 类型不匹配：key={key}, T={typeof(T)}, 实际={Obj.GetType()}");
-
             if (!_enumDict.TryGetValue(key, out var baseEntry))
             {
                 baseEntry = new Entry<T>();
@@ -146,10 +123,7 @@ namespace HowFrame
 
             var entry = (Entry<T>)baseEntry;
             entry.Obj = obj;
-
-            if (entry.Callback != null)
-                obj.OnChanged += entry.Callback;
-
+            if (entry.Callback != null) obj.OnChanged += entry.Callback;
             return new EnumBindHelper<T>(key);
         }
 
@@ -161,7 +135,5 @@ namespace HowFrame
                 _enumDict.Remove(key);
             }
         }
-
-
     }
 }

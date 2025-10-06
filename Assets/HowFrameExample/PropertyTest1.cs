@@ -5,17 +5,24 @@ using static HowEnum.ExampleEnum;
 public class PropertyTest1 : MonoBehaviour
 {
 
-    private PropertyHelper _propertyHelper;
+    private PropertyHelper _propertyHelper=new PropertyHelper();
+
+    private Ref<int> hp = new(50);
     private void Awake()
     {
-       var hp = new Ref<int>(5,example1,(a)=>{},_propertyHelper);
-        // 绑定变量
-        PropertyAssistant.SetObj<int>("hp", hp).OnChange((num)=>Debug.Log(num));
-
+        _propertyHelper.SetObj("hp", hp);
+        _propertyHelper.SetEvent<int>("hp", (a) =>
+        {
+            a.Log("这是hp：");
+        });
+  
     }
 
-    private void OnDestroy()
+    private void Start()
     {
-        
+        CoroutineAssistant.StartLoop("12",1, () =>
+        {
+            hp.Value+=1;
+        });
     }
 }

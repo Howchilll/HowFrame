@@ -1,0 +1,12 @@
+﻿2025-10-04 11:16:56.084 [INFO] Begin to build package : DefaultPackage by ScriptableBuildPipeline
+2025-10-04 11:16:56.085 [INFO] --------------------------------------------->TaskPrepare<--------------------------------------------
+2025-10-04 11:16:56.092 [INFO] Create pipeline output directory: D:/UNITY/UNITY PROJECT/HowFrame/Bundles/StandaloneWindows64/DefaultPackage/OutputCache
+2025-10-04 11:16:56.092 [INFO] TaskPrepare It takes 0 seconds in total
+2025-10-04 11:16:56.092 [INFO] --------------------------------------------->TaskGetBuildMap<--------------------------------------------
+2025-10-04 11:16:56.108 [INFO] Total build process time: 0 seconds
+2025-10-04 11:16:56.108 [ERROR] ScriptableBuildPipeline build failed !
+2025-10-04 11:16:56.108 [ERROR] An error occurred in build task TaskGetBuildMap_SBP
+2025-10-04 11:16:56.109 [ERROR] System.Exception: [ErrorCode202] The pack asset info is empty !
+  at YooAsset.Editor.TaskGetBuildMap.CreateBuildMap (System.Boolean simulateBuild, YooAsset.Editor.BuildParameters buildParameters) [0x00471] in .\Library\PackageCache\com.tuyoogame.yooasset@5b928885fc05\Editor\AssetBundleBuilder\BuildPipeline\BaseTasks\TaskGetBuildMap.cs:146 
+  at YooAsset.Editor.TaskGetBuildMap_SBP.YooAsset.Editor.IBuildTask.Run (YooAsset.Editor.BuildContext context) [0x00007] in .\Library\PackageCache\com.tuyoogame.yooasset@5b928885fc05\Editor\AssetBundleBuilder\BuildPipeline\ScriptableBuildPipeline\BuildTasks\TaskGetBuildMap_SBP.cs:15 
+  at YooAsset.Editor.BuildRunner.Run (System.Collections.Generic.List`1[T] pipeline, YooAsset.Editor.BuildContext context) [0x00073] in .\Library\PackageCache\com.tuyoogame.yooasset@5b928885fc05\Editor\AssetBundleBuilder\BuildSystem\BuildRunner.cs:41 

@@ -43,9 +43,9 @@ public class Ref<T>
         _value = default;
 
         if (helper != null)
-            helper.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+            helper.SetObj<T>(key,this).OnChange(callback);
         else
-            PropertyAssistant.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+            PropertyAssistant.SetObj<T>(key,this).OnChange(callback);
     }
 
     // ---------------- 构造函数：绑定 EnumKeyBase key ----------------
@@ -54,9 +54,9 @@ public class Ref<T>
         _value = default;
 
         if (helper != null)
-            helper.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+            helper.SetObj<T>(key,this).OnChange(callback);
         else
-            PropertyAssistant.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+            PropertyAssistant.SetObj<T>(key,this).OnChange(callback);
     }
     // 创建计算属性
     
@@ -65,9 +65,9 @@ public class Ref<T>
         _value = value;
 
         if (helper != null)
-            helper.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+            helper.SetObj<T>(key,this).OnChange(callback);
         else
-            PropertyAssistant.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+            PropertyAssistant.SetObj<T>(key,this).OnChange(callback);
     }
 
     // ---------------- 构造函数：绑定 EnumKeyBase key ----------------
@@ -76,13 +76,11 @@ public class Ref<T>
         _value = value;
 
         if (helper != null)
-            helper.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+            helper.SetObj<T>(key, this).OnChange(callback);
         else
-            PropertyAssistant.SetObj<T>(key, (Ref<object>)(object)this).OnChange(callback);
+            PropertyAssistant.SetObj<T>(key,this).OnChange(callback);
     }
     // 创建计算属性
-    
-    
     public static Ref<T> Computed(Func<T> computer)
     {
         var computedRef = new Ref<T>();
@@ -109,5 +107,17 @@ public class Ref<T>
     public static implicit operator T(Ref<T> refValue) => refValue.Value;
     
     // 隐式转换：T -> Ref<T>
-    public static implicit operator Ref<T>(T value) => new Ref<T>(value);
+   // public static implicit operator Ref<T>(T value) => new Ref<T>(value);
+    
+    public void SetSilent(T value)
+    {
+        _value = value;
+    }
+
+    // 运算符重载：hp >> 200 调用 SetSilent
+    public static Ref<T> operator &(Ref<T> r, T value)
+    {
+        r.SetSilent(value);
+        return r;
+    }
 }

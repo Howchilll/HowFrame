@@ -58,10 +58,8 @@ namespace HowFrame
                 entry.Obj.OnChanged += callback;
         }
 
-        public BindHelper<T> SetObj<T>(string key, Ref<Object> Obj)
+        public BindHelper<T> SetObj<T>(string key, Ref<T> obj)
         {
-            if (!(Obj is Ref<T> obj))
-                throw new InvalidCastException($"SetObj 类型不匹配：key={key}, T={typeof(T)}, 实际={Obj.GetType()}");
 
             if (!_dict.TryGetValue(key, out var baseEntry))
             {
@@ -136,10 +134,8 @@ namespace HowFrame
         }
 
         // 设置对象（枚举 key 版）
-        public EnumBindHelper<T> SetObj<T>(EnumKeyBase key, Ref<object> Obj)
+        public EnumBindHelper<T> SetObj<T>(EnumKeyBase key, Ref<T> obj)
         {
-            if (!(Obj is Ref<T> obj))
-                throw new InvalidCastException($"SetObj 类型不匹配：key={key}, T={typeof(T)}, 实际={Obj.GetType()}");
 
             if (!_enumDict.TryGetValue(key, out var baseEntry))
             {
