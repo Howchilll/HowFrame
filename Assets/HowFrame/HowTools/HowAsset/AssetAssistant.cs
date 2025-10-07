@@ -2,7 +2,10 @@ using System;using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using Object = UnityEngine.Object;
+using UnityEngine.AddressableAssets;
+
 namespace HowFrame
 {
 
@@ -75,6 +78,24 @@ public static class AssetAssistant
           
         }   
        return default;
+    }
+    
+    
+    public static async Task<T> AddressAsset<T>(string address, float delaySeconds = 0f) where T : Object
+    {
+        AsyncOperationHandle<T> handle = Addressables.LoadAssetAsync<T>(address);
+        T asset = await handle.Task;
+
+      if(delaySeconds>0)
+        _ = DelayRelease(handle, delaySeconds);
+
+        return asset;
+    }
+
+    private static async Task DelayRelease<T>(AsyncOperationHandle<T> handle, float delaySeconds) where T : Object
+    {
+        await Task.Delay((int)(delaySeconds * 1000));
+        Addressables.Release(handle);
     }
     
     internal static void wake(){}
