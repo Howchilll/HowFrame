@@ -16,7 +16,7 @@ MonoBehaviour:
   m_GUID: 32abe9e7cfcd49d4cabd36f1be5f812b
   m_SerializeEntries:
   - m_GUID: 544abdc95e3aa3f4f840dce992f808e6
-    m_Address: GameRes/UI/ExamplePanel
+    m_Address: ExamplePanel
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
