@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
 using System.Collections.Generic;
@@ -196,3 +197,4 @@ public class EnumCreator : EditorWindow
             elements.Add(new EnumElement());
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System;
 using System.Reflection;
 
@@ -50,3 +51,4 @@ public static class PathEditor
         return field.GetValue(null) as string;
     }
 }
+#endif

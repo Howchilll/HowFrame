@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
@@ -22,7 +23,7 @@ public class ConfigMaker : EditorWindow
     private string baseType = "";
     private List<FieldDef> fields = new List<FieldDef>();
 
-    private string outputDir = "";
+    private string outputDir = "Assets/Config"; // ✅ 默认路径
 
     // using 列表（支持折叠）
     private bool showUsings = true;
@@ -285,3 +286,4 @@ public class ConfigMaker : EditorWindow
     private string LowerFirst(string s) =>
         string.IsNullOrEmpty(s) ? s : char.ToLower(s[0]) + s.Substring(1);
 }
+#endif

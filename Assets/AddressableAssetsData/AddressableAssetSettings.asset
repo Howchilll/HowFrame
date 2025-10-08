@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 468a46d0ae32c3544b7d98094e6448a9, type: 3}
   m_Name: AddressableAssetSettings
   m_EditorClassIdentifier: 
-  m_DefaultGroup: 755a72a191f07b04b83571fab3273336
+  m_DefaultGroup: dcde6b08fe55946468e273b2b02a18ab
   m_currentHash:
     serializedVersion: 2
-    Hash: 4717237c3864dfa5450a3abd8094f8ac
+    Hash: 00000000000000000000000000000000
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 0
   m_CatalogRequestsTimeout: 0
@@ -53,14 +53,18 @@ MonoBehaviour:
     m_Id: 
   m_RemoteCatalogLoadPath:
     m_Id: 
-  m_ContentStateBuildPathProfileVariableName: 
+  m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
   m_overridePlayerVersion: '[UnityEditor.PlayerSettings.bundleVersion]'
   m_GroupAssets:
+  - {fileID: 11400000, guid: fab74070236de8f43b30e57a0c817a4c, type: 2}
+  - {fileID: 11400000, guid: 62ee81f976ea4614f998074fb795f3fb, type: 2}
+  - {fileID: 11400000, guid: 2a49064884786a149aae5e2ee269a658, type: 2}
+  - {fileID: 11400000, guid: bc6b6e57d8be7a44084245adbeba1953, type: 2}
+  - {fileID: 11400000, guid: 6a1fac22ff496154ba9e5b13567089b7, type: 2}
   - {fileID: 11400000, guid: d6720286b49d69f4298710215bbdbcaf, type: 2}
-  - {fileID: 11400000, guid: 054df663cb142da49aeaadbb37eb7884, type: 2}
   m_BuildSettings:
     m_LogResourceManagerExceptions: 1
     m_BundleBuildPath: Temp/com.unity.addressables/AssetBundles
@@ -77,9 +81,9 @@ MonoBehaviour:
       - m_Id: 461afafed2cc17d49a5cac3d74ea2508
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
       - m_Id: 6c2169ed96e1e6f4f9f95e6b9d75b982
-        m_Value: <undefined>
+        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
       - m_Id: d5982978558ef204e8db916403f08642
-        m_Value: 'ServerData/[BuildTarget]'
+        m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
     m_ProfileEntryNames:
     - m_Id: 1956a527c067bdb41977600030c932d3
       m_Name: BuildTarget

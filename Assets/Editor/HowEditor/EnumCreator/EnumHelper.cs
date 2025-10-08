@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System.Collections.Generic;
 using LitJson;
 
@@ -69,3 +70,4 @@ public static class EnumHelper
         return list;
     }
 }
+#endif

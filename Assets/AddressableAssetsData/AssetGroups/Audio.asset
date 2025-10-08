@@ -13,10 +13,10 @@ MonoBehaviour:
   m_Name: Audio
   m_EditorClassIdentifier: 
   m_GroupName: Audio
-  m_GUID: 426cdfaa8573ea341916a742ea88a851
+  m_GUID: fa94af1ff7e45594a88bd86d6f860594
   m_SerializeEntries:
-  - m_GUID: 67d516a62f22a2549bf0bb1a9e806887
-    m_Address: Audio
+  - m_GUID: 279a0a1c22c47e14e835907a73993138
+    m_Address: "\u6309\u6309\u94AE"
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

@@ -1,84 +1,129 @@
-using System.Collections;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using static HowFrame.AssetAssistant;
+
 namespace HowFrame
 {
+    public static class UIManager
+    {
+        private static Canvas Canvas;
+        private static readonly Dictionary<string, PanelBase> UIObjects = new Dictionary<string, PanelBase>();
 
-public static class UIManager 
-{ 
-    private static readonly Canvas Canvas;
-    private static readonly Dictionary<string,PanelBase> UIObjects = new Dictionary<string,PanelBase>();
-    
-    static UIManager()
-    {
-        GameObject canvasObj = AssetAssistant.LoadAsset<GameObject>("Canvas", E_AssetType.Instance);
-        canvasObj=Object.Instantiate(canvasObj);
-        Canvas = canvasObj.GetComponent<Canvas>();
-        Camera oldCamera = Canvas.worldCamera; 
-        Canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        Canvas.worldCamera = null;      
-        Object.Destroy(oldCamera.gameObject);
-        Object.DontDestroyOnLoad(Canvas.gameObject);
-    }
-   
-    public static void Show(bool father,params string[] UINames)
-    {
-        Transform fatherTransform;
-        if (father) fatherTransform = UIObjects[UINames[0]].transform; 
-        else fatherTransform = Canvas.transform;
-        
-        foreach (var name in UINames)
+        static UIManager()
         {
-            if (!UIObjects.ContainsKey(name))
+            UniTask.Void(async () =>
             {
-                if (father)
+                GameObject canvasObj = await AddressAsset<GameObject>("Canvas");
+                if (canvasObj == null)
                 {
-                    father = false;
-                    continue;
-                }// 跳过father的Show
-                
-                GameObject ui = LoadAsset<GameObject>(name, E_AssetType.UI);
-                if (ui == null)
-                {
-                    Debug.LogError($"UI 预设体 {name} 加载失败");
-                    continue;
+                    Debug.LogError("UIManager: Canvas 加载失败!");
+                    return;
                 }
-                UIObjects[name] = Object.Instantiate(ui, fatherTransform).GetComponent<PanelBase>();   
-            }
-            else
-            {
-                UIObjects[name].gameObject.SetActive(true);
-            }
-            UIObjects[name].WhenShow();
+
+                canvasObj = Object.Instantiate(canvasObj);
+                Canvas = canvasObj.GetComponent<Canvas>();
+                if (Canvas == null)
+                {
+                    Debug.LogError("UIManager: Canvas 组件不存在!");
+                    return;
+                }
+
+                Camera oldCamera = Canvas.worldCamera;
+                Canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                Canvas.worldCamera = null;
+                if (oldCamera != null) Object.Destroy(oldCamera.gameObject);
+
+                Object.DontDestroyOnLoad(Canvas.gameObject);
+            });
         }
-    }
-    public static void Show(params string[] UINames)
-    {
-        Show(false, UINames);
-    }
-    public static void Hide(bool destroy=false,params string[] UINames)
-    {
-        foreach (var name in UINames)
+
+        #region Show UI
+
+        public static void Show(bool father = false, params string[] UINames)
         {
-            if (UIObjects.ContainsKey(name))
+            UniTask.Void(async () =>
             {
-                UIObjects[name].WhenHide();
-                if (destroy)
+                Transform fatherTransform = Canvas.transform;
+
+                if (father && UIObjects.ContainsKey(UINames[0]))
+                    fatherTransform = UIObjects[UINames[0]].transform;
+
+                foreach (var name in UINames)
                 {
-                    Object.Destroy(UIObjects[name].gameObject);
-                    UIObjects.Remove(name); 
+                    if (!UIObjects.ContainsKey(name))
+                    {
+                        if (father && fatherTransform == UIObjects[UINames[0]].transform)
+                        {
+                            // 跳过父级的 Show
+                            father = false;
+                            continue;
+                        }
+
+                        GameObject uiPrefab = await AddressAsset<GameObject>(name);
+                        if (uiPrefab == null)
+                        {
+                            Debug.LogError($"UI 预设体 {name} 加载失败");
+                            continue;
+                        }
+
+                        var uiObj = Object.Instantiate(uiPrefab, fatherTransform);
+                        var panel = uiObj.GetComponent<PanelBase>();
+                        if (panel == null)
+                        {
+                            Debug.LogError($"UI 预设体 {name} 上没有 PanelBase 组件");
+                            Object.Destroy(uiObj);
+                            continue;
+                        }
+
+                        UIObjects[name] = panel;
+                    }
+                    else
+                    {
+                        UIObjects[name].gameObject.SetActive(true);
+                    }
+
+                    UIObjects[name].WhenShow();
                 }
-                else UIObjects[name].gameObject.SetActive(false);
+            });
+        }
+
+        public static void Show(params string[] UINames)
+        {
+            Show(false, UINames);
+        }
+
+        #endregion
+
+        #region Hide UI
+
+        public static void Hide(bool destroy = false, params string[] UINames)
+        {
+            foreach (var name in UINames)
+            {
+                if (UIObjects.ContainsKey(name))
+                {
+                    UIObjects[name].WhenHide();
+                    if (destroy)
+                    {
+                        Object.Destroy(UIObjects[name].gameObject);
+                        UIObjects.Remove(name);
+                    }
+                    else
+                    {
+                        UIObjects[name].gameObject.SetActive(false);
+                    }
+                }
             }
         }
-      
+
+        public static void Hide(params string[] UINames)
+        {
+            Hide(false, UINames);
+        }
+
+        #endregion
+
+        public static void wake() { }
     }
-    public static void Hide(params string[] UINames)
-    {
-        Hide(false, UINames);
-    }
-    
-    public static void wake(){}
-}
 }

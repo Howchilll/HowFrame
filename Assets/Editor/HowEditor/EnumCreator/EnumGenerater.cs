@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System.IO;
 using System.Text;
 
@@ -66,3 +67,4 @@ public static class EnumGenerater
         }
     }
 }
+#endif

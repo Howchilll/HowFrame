@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -12,3 +13,4 @@ public class EnumElement
 
     [System.NonSerialized] public bool foldout = true; // 是否展开
 }
+#endif

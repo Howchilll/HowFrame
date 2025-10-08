@@ -11,7 +11,7 @@ public class InputCheck
     
     public void init()
     {
-        MonoAssistant.OnUpdate += TheInputCheck;
+      //  MonoAssistant.OnUpdate += TheInputCheck;
     }
     
     

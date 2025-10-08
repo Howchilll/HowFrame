@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
 using System.Collections.Generic;
@@ -182,3 +183,4 @@ public class PathCreator : EditorWindow
         Debug.Log("已生成 C# 文件: " + csPath);
     }
 }
+#endif

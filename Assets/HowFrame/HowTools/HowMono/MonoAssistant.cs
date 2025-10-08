@@ -5,34 +5,81 @@ namespace HowFrame
 
 public static class MonoAssistant
 {
-    private static MonoHelper _instance;
-    private static MonoHelper Instance
-    {
-        get
+
+        private static MonoHelper _instance;
+        private static MonoHelper Instance
         {
-            if (_instance == null)
+            get
             {
-                GameObject obj = new GameObject("MonoAssistant_Helper");
-                UnityEngine.Object.DontDestroyOnLoad(obj);
-                _instance = obj.AddComponent<MonoHelper>();
+                if (_instance == null)
+                {
+                    GameObject obj = new GameObject("MonoAssistant_Helper");
+                    UnityEngine.Object.DontDestroyOnLoad(obj);
+                    _instance = obj.AddComponent<MonoHelper>();
+                }
+                return _instance;
             }
-            return _instance;
         }
-    }
-    public static event Action OnUpdate;
-    public static event Action OnFixedUpdate;
-    public static event Action OnLateUpdate;
-    
-    static MonoAssistant() => Instance.Init();
 
-    private class MonoHelper : MonoBehaviour
-    {
-        public void Init() { } 
-        private void Update() => OnUpdate?.Invoke();
-        private void FixedUpdate() => OnFixedUpdate?.Invoke();
-        private void LateUpdate() => OnLateUpdate?.Invoke();
-    }
+        static MonoAssistant() => Instance.Init();
 
-    internal static void wake(){}
-}
+        // 内部存储事件，避免重复添加
+        private static event Action _onUpdate;
+        private static event Action _onFixedUpdate;
+        private static event Action _onLateUpdate;
+
+        #region 添加/移除回调
+
+        public static void AddUpdate(Action callback)
+        {
+            if (callback == null) return;
+            _onUpdate -= callback; // 避免重复添加
+            _onUpdate += callback;
+        }
+
+        public static void RemoveUpdate(Action callback)
+        {
+            if (callback == null) return;
+            _onUpdate -= callback;
+        }
+
+        public static void AddFixedUpdate(Action callback)
+        {
+            if (callback == null) return;
+            _onFixedUpdate -= callback;
+            _onFixedUpdate += callback;
+        }
+
+        public static void RemoveFixedUpdate(Action callback)
+        {
+            if (callback == null) return;
+            _onFixedUpdate -= callback;
+        }
+
+        public static void AddLateUpdate(Action callback)
+        {
+            if (callback == null) return;
+            _onLateUpdate -= callback;
+            _onLateUpdate += callback;
+        }
+
+        public static void RemoveLateUpdate(Action callback)
+        {
+            if (callback == null) return;
+            _onLateUpdate -= callback;
+        }
+
+        #endregion
+
+        private class MonoHelper : MonoBehaviour
+        {
+            public void Init() { }
+
+            private void Update() => _onUpdate?.Invoke();
+            private void FixedUpdate() => _onFixedUpdate?.Invoke();
+            private void LateUpdate() => _onLateUpdate?.Invoke();
+        }
+
+        internal static void wake() { }
+    }
 }
