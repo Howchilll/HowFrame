@@ -45,6 +45,14 @@ public class OrderAction
         foreach (var a in toInvoke)
             a?.Invoke();
     }
+    
+    public void Clear()
+    {
+        lock (_lock)
+        {
+            _actions.Clear();
+        }
+    }
 }
 }
 
