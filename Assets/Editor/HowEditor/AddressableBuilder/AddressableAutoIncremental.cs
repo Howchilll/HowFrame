@@ -16,7 +16,15 @@ public class AddressableAutoIncremental : AssetPostprocessor
     {
         var settings = AddressableAssetSettingsDefaultObject.Settings;
         if (settings == null) return;
+        // 🚫 如果这次操作完全不在 RootFolder 下，直接返回
+        bool hasRelevantChange =
+            importedAssets.Any(p => p.StartsWith(RootFolder)) ||
+            deletedAssets.Any(p => p.StartsWith(RootFolder)) ||
+            movedAssets.Any(p => p.StartsWith(RootFolder)) ||
+            movedFromAssetPaths.Any(p => p.StartsWith(RootFolder));
 
+        if (!hasRelevantChange)
+            return;
         // ---------------- 新增/修改 ----------------
         foreach (var assetPath in importedAssets)
         {
