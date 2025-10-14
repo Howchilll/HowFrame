@@ -1,6 +1,7 @@
-namespace HowFrame.HowMacro;
+global using static HowMacro;
 
-public class HowMacro
+public static class HowMacro
 {
-    
+    public static T @SET_GET<T>() { return default(T);}
+    public static int @CLASS_COUNT;
 }

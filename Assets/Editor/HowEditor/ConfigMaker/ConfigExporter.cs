@@ -16,7 +16,7 @@ public class SOExporterWindow : EditorWindow
     private bool exportBinary;
 
     private ScriptableObject soInstance;
-    private Editor soEditor;
+    private UnityEditor.Editor soEditor;
     private Vector2 scrollPos;
 
     private const string PrefTypeName = "SOExporter_TypeName";
@@ -69,8 +69,8 @@ public class SOExporterWindow : EditorWindow
             GUILayout.Label("SO Data Inspector", EditorStyles.boldLabel);
 
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(250));
-            if (soEditor == null)
-                soEditor = Editor.CreateEditor(soInstance);
+            if (soEditor == null) 
+                soEditor = UnityEditor.Editor.CreateEditor(soInstance);
 
             soEditor.OnInspectorGUI();
             EditorGUILayout.EndScrollView();
