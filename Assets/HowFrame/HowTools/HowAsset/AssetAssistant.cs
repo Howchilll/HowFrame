@@ -83,12 +83,21 @@ public static class AssetAssistant
     
     public static async Task<T> AddressAsset<T>(string address, float delaySeconds = 0f) where T : Object
     {
+        T asset;
         AsyncOperationHandle<T> handle = Addressables.LoadAssetAsync<T>(address);
-        T asset = await handle.Task;
+        try
+        {
+             asset = await handle.Task;
+            
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Addressables加载失败: {address} \n{e}");
+            return null;
+        }
 
-      if(delaySeconds>0)
-        _ = DelayRelease(handle, delaySeconds);
-
+        if(delaySeconds>0)
+             _ = DelayRelease(handle, delaySeconds);
         return asset;
     }
 

@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using UnityEngine;
-using static HowFrame.AssetAssistant;
 using Cysharp.Threading.Tasks;
+using UnityEngine.Audio;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 
@@ -13,32 +13,45 @@ namespace HowFrame
 {
     public static class AudioManager
     {
-        private static GameObject _audioPool;
         private static GameObject _audioManagerObject;
+        private static GameObject _audioPool;
+
         private static readonly Dictionary<string, AudioSource> MusicSources = new Dictionary<string, AudioSource>();
         private static readonly Dictionary<string, AudioClip> MusicClips = new Dictionary<string, AudioClip>();
-        private static readonly List<string> SoundCheck = new List<string>();
+
         private static readonly Dictionary<string, AudioClip> SoundClips = new Dictionary<string, AudioClip>();
         private static readonly Dictionary<string, int> SoundFreq = new Dictionary<string, int>();
-        private static readonly List<string> CgNames = new List<string>();
+        private static readonly List<string> LruList = new List<string>();
         private static readonly Queue<AudioSource> SoundSources = new Queue<AudioSource>();
+        private static readonly HashSet<string> SoundCheck = new HashSet<string>();
+
         private static float _lastCleanupTime = 0;
 
-        static AudioManager()
-        {
-            Init();
-        }
+        private static AudioMixer _mixer;
+        private static AudioMixerGroup _musicGroup;
+        private static AudioMixerGroup _soundGroup;
+
+        private const int MaxSoundCache = 50; // 最大缓存音效数量
+
+        static AudioManager() => Init();
 
         private static void Init()
         {
-            if (_audioManagerObject == null)
+            if (_audioManagerObject != null) return;
+
+            _audioManagerObject = new GameObject("AudioManager");
+            _audioPool = new GameObject("AudioPool");
+            Object.DontDestroyOnLoad(_audioManagerObject);
+            Object.DontDestroyOnLoad(_audioPool);
+
+            _audioManagerObject.AddComponent<FakeMono>();
+            UniTask.Void(async () =>
             {
-                _audioManagerObject = new GameObject("AudioManager");
-                _audioPool = new GameObject("AudioPool");
-                _audioManagerObject.AddComponent<FakeMono>();
-                Object.DontDestroyOnLoad(_audioManagerObject);
-                Object.DontDestroyOnLoad(_audioPool);
-            }
+                _mixer =await AssetAssistant.AddressAsset<AudioMixer>("AudioMixer");
+                _musicGroup = _mixer.FindMatchingGroups("Master").FirstOrDefault();
+                _soundGroup = _mixer.FindMatchingGroups("Master").FirstOrDefault();
+            });
+
         }
 
         #region Music
@@ -48,95 +61,74 @@ namespace HowFrame
         {
             UniTask.Void(async () =>
             {
-                if (MusicSources.ContainsKey(fileName)) return;
-
-                AudioClip clip;
-                if (MusicClips.ContainsKey(fileName))
+                try
                 {
-                    clip = MusicClips[fileName];
+                    if (MusicSources.ContainsKey(fileName)) return;
+
+                    AudioClip clip;
+                    if (!MusicClips.TryGetValue(fileName, out clip))
+                    {
+                        clip = await SafeLoad<AudioClip>(fileName);
+                        if (!clip) return;
+                        MusicClips[fileName] = clip;
+                    }
+
+                    AudioSource source = GetSoundSource();
+                    SetupAudioSource(source, clip, father, volume, minDis, maxDis, true, true);
+
+                    MusicSources[fileName] = source;
+
+                    _audioManagerObject.GetComponent<FakeMono>()
+                        .StartCoroutine(PlayMusicCoroutine(delay, source));
                 }
-                else
+                catch (Exception ex)
                 {
-                    clip = await GetMusicClip(fileName);
-                    MusicClips.Add(fileName, clip);
+                    Debug.LogError($"AddMusic {fileName} failed: {ex}");
                 }
-
-                AudioSource audioSource = GetSoundSource();
-                SetupAudioSource(audioSource, clip, father, volume, minDis, maxDis, loop: true);
-
-                MusicSources.Add(fileName, audioSource);
-
-                _audioManagerObject.GetComponent<FakeMono>()
-                    .StartCoroutine(PlayMusicCoroutine(delay, audioSource));
             });
         }
 
         public static void EndMusic(string fileName)
         {
-            if (MusicSources.ContainsKey(fileName) && MusicSources[fileName] != null)
-            {
-                _audioManagerObject.GetComponent<FakeMono>()
-                    .StartCoroutine(EndMusicCoroutine(fileName, MusicSources[fileName]));
-            }
+            if (!MusicSources.TryGetValue(fileName, out var source) || source == null) return;
+
+            _audioManagerObject.GetComponent<FakeMono>()
+                .StartCoroutine(EndMusicCoroutine(fileName, source));
         }
 
-        public static void ChangeVolume(string name, float vol = 1)
+        public static void ChangeMusicVolume(float vol)
         {
-            if (MusicSources.ContainsKey(name) && MusicSources[name] != null)
-            {
-                MusicSources[name].volume = Mathf.Clamp01(vol * GlobalData.MusicVol);
-            }
+            _mixer.SetFloat("MusicVol", Mathf.Log10(Mathf.Clamp01(vol)) * 20);
         }
 
-        private static IEnumerator PlayMusicCoroutine(float delayTime, AudioSource audioSource)
+        private static IEnumerator PlayMusicCoroutine(float delay, AudioSource source)
         {
-            yield return new WaitForSeconds(delayTime);
-            audioSource.Play();
+            yield return new WaitForSeconds(delay);
+            source.Play();
         }
 
-        private static IEnumerator EndMusicCoroutine(string fileName, AudioSource audioSource, float time = 2)
+        private static IEnumerator EndMusicCoroutine(string fileName, AudioSource source, float fadeTime = 2f)
         {
-            if (!MusicSources.ContainsKey(fileName)) yield break;
-
-            float startVolume = audioSource.volume;
+            float startVol = source.volume;
             float elapsed = 0f;
 
-            while (elapsed < time)
+            while (elapsed < fadeTime)
             {
-                audioSource.volume = Mathf.Lerp(startVolume, 0f, elapsed / time);
+                source.volume = Mathf.Lerp(startVol, 0f, elapsed / fadeTime);
                 elapsed += Time.deltaTime;
                 yield return null;
             }
 
-            audioSource.Stop();
-            audioSource.clip = null;
-            audioSource.gameObject.SetActive(false);
-            audioSource.transform.SetParent(_audioPool.transform);
-            SoundSources.Enqueue(audioSource);
+            source.Stop();
+            ReturnSourceToPool(source);
+
             MusicSources.Remove(fileName);
 
-            if (MusicClips.ContainsKey(fileName))
+            if (MusicClips.TryGetValue(fileName, out var clip))
             {
-                Object.Destroy(MusicClips[fileName]);
+                Object.Destroy(clip);
                 MusicClips.Remove(fileName);
             }
-        }
-
-        public static void PreAddAudio(string fileName)
-        {
-            UniTask.Void(async () =>
-            {
-                if (!MusicClips.ContainsKey(fileName))
-                {
-                    AudioClip clip = await GetMusicClip(fileName);
-                    MusicClips.Add(fileName, clip);
-                }
-            });
-        }
-
-        private static async UniTask<AudioClip> GetMusicClip(string fileName)
-        {
-            return await AddressAsset<AudioClip>(fileName);
         }
 
         #endregion
@@ -148,118 +140,159 @@ namespace HowFrame
         {
             UniTask.Void(async () =>
             {
-                StringBuilder tag = new StringBuilder(fileName);
-                tag.Append(father ? father.name : "null");
+                try
+                {
+                    string tag = fileName + (father ? father.name : "null");
+                    if (SoundCheck.Contains(tag)) return;
+                    SoundCheck.Add(tag);
 
-                if (SoundCheck.Contains(tag.ToString())) return;
-                SoundCheck.Add(tag.ToString());
+                    string soundName = types > 1 ? fileName + Random.Range(1, types + 1) : fileName;
 
-                string soundName = types > 1 ? fileName + UnityEngine.Random.Range(1, types) : fileName;
+                    AudioClip clip = await GetSoundClip(soundName);
+                    if (!clip) return;
 
-                AudioClip clip = await GetSoundClip(soundName);
+                    AudioSource source = GetSoundSource();
+                    SetupAudioSource(source, clip, father, volume, minDis, maxDis, false, false);
 
-                AudioSource audioSource = GetSoundSource();
-                SetupAudioSource(audioSource, clip, father, volume, minDis, maxDis, loop: false);
-
-                _audioManagerObject.GetComponent<FakeMono>()
-                    .StartCoroutine(PlaySoundCoroutine(delayTime, audioSource, tag.ToString()));
+                    _audioManagerObject.GetComponent<FakeMono>()
+                        .StartCoroutine(PlaySoundCoroutine(delayTime, source, tag));
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"AddSound {fileName} failed: {ex}");
+                }
             });
         }
 
-        private static IEnumerator PlaySoundCoroutine(float delayTime, AudioSource audioSource, string soundName)
+        private static IEnumerator PlaySoundCoroutine(float delayTime, AudioSource source, string tag)
         {
             yield return new WaitForSeconds(delayTime);
 
-            SoundCheck.Remove(soundName);
-            audioSource.Play();
+            SoundCheck.Remove(tag);
+            source.Play();
 
-            yield return new WaitForSeconds(audioSource.clip.length + 0.2f);
+            yield return new WaitForSeconds(source.clip.length + 0.1f);
 
-            audioSource.Stop();
-            audioSource.clip = null;
-            audioSource.gameObject.SetActive(false);
-            audioSource.transform.SetParent(_audioPool.transform);
-            SoundSources.Enqueue(audioSource);
+            source.Stop();
+            ReturnSourceToPool(source);
         }
 
-        private static async UniTask<AudioClip> GetSoundClip(string soundName)
+        private static async UniTask<AudioClip> GetSoundClip(string name)
         {
-            // 定期清理音频缓存
             if (Time.time - _lastCleanupTime > 30)
             {
                 _lastCleanupTime = Time.time;
-                CgNames.Clear();
-                foreach (var key in SoundFreq.Keys.ToList())
-                {
-                    SoundFreq[key] -= 2;
-                    if (SoundFreq[key] <= 0) CgNames.Add(key);
-                }
-
-                foreach (var name in CgNames)
-                {
-                    SoundFreq.Remove(name);
-                    Resources.UnloadAsset(SoundClips[name]);
-                    SoundClips.Remove(name);
-                }
+                CleanupSoundCache();
             }
 
-            if (!SoundClips.ContainsKey(soundName))
+            if (!SoundClips.TryGetValue(name, out var clip))
             {
-                AudioClip result = await AddressAsset<AudioClip>(soundName);
-                SoundClips.Add(soundName, result);
-                SoundFreq.Add(soundName, 1);
-                return result;
+                clip = await SafeLoad<AudioClip>(name);
+                if (!clip) return null;
+
+                SoundClips[name] = clip;
+                SoundFreq[name] = 1;
+                LruList.Add(name);
+
+                if (SoundClips.Count > MaxSoundCache)
+                    CleanupSoundCache();
             }
             else
             {
-                SoundFreq[soundName]++;
-                return SoundClips[soundName];
+                SoundFreq[name]++;
+                LruList.Remove(name);
+                LruList.Add(name);
             }
+
+            return clip;
         }
 
         #endregion
 
-        private static AudioSource GetSoundSource()
+        #region Helpers
+
+        private static void CleanupSoundCache()
         {
-            if (SoundSources.Count > 0)
+            while (SoundClips.Count > MaxSoundCache)
             {
-                return SoundSources.Dequeue();
+                string oldest = LruList[0];
+                LruList.RemoveAt(0);
+                SoundFreq.Remove(oldest);
+                Resources.UnloadAsset(SoundClips[oldest]);
+                SoundClips.Remove(oldest);
             }
-            else
+
+            foreach (var key in SoundFreq.Keys.ToList())
             {
-                GameObject newAudioObj = new GameObject("PooledAudioSource");
-                newAudioObj.transform.SetParent(_audioPool.transform);
-                return newAudioObj.AddComponent<AudioSource>();
+                SoundFreq[key] -= 2;
+                if (SoundFreq[key] <= 0)
+                {
+                    LruList.Remove(key);
+                    SoundFreq.Remove(key);
+                    if (SoundClips.TryGetValue(key, out var clip))
+                    {
+                        Resources.UnloadAsset(clip);
+                        SoundClips.Remove(key);
+                    }
+                }
             }
         }
 
-        private static void SetupAudioSource(AudioSource audioSource, AudioClip clip, GameObject father,
-            float volume, float minDis, float maxDis, bool loop)
+        private static void ReturnSourceToPool(AudioSource source)
         {
-            audioSource.gameObject.SetActive(true);
-            audioSource.transform.SetParent(father ? father.transform : _audioManagerObject.transform);
-            audioSource.transform.localPosition = Vector3.zero;
+            source.clip = null;
+            source.gameObject.SetActive(false);
+            source.transform.SetParent(_audioPool.transform);
+            SoundSources.Enqueue(source);
+        }
 
-            audioSource.clip = clip;
-            audioSource.playOnAwake = false;
-            audioSource.loop = loop;
-            audioSource.volume = Mathf.Clamp01(volume) * (loop ? GlobalData.MusicVol : GlobalData.SoundVol);
+        private static AudioSource GetSoundSource()
+        {
+            if (SoundSources.Count > 0) return SoundSources.Dequeue();
+
+            var go = new GameObject("PooledAudioSource");
+            go.transform.SetParent(_audioPool.transform);
+            return go.AddComponent<AudioSource>();
+        }
+
+        private static void SetupAudioSource(AudioSource source, AudioClip clip, GameObject father,
+            float volume, float minDis, float maxDis, bool loop, bool isMusic)
+        {
+            source.clip = clip;
+            source.loop = loop;
+            source.playOnAwake = false;
+            source.volume = Mathf.Clamp01(volume);
+            source.outputAudioMixerGroup = isMusic ? _musicGroup : _soundGroup;
+
+            source.gameObject.SetActive(true);
+            source.transform.SetParent(father ? father.transform : _audioManagerObject.transform);
+            source.transform.localPosition = Vector3.zero;
 
             if (father != null)
             {
-                audioSource.spatialBlend = 1f;
-                audioSource.rolloffMode = AudioRolloffMode.Logarithmic;
-                audioSource.minDistance = minDis;
-                audioSource.maxDistance = maxDis;
+                source.spatialBlend = 1f;
+                source.rolloffMode = AudioRolloffMode.Logarithmic;
+                source.minDistance = minDis;
+                source.maxDistance = maxDis;
             }
         }
 
-        private class FakeMono : MonoBehaviour
+        private static async UniTask<T> SafeLoad<T>(string path) where T : Object
         {
+            try
+            {
+                return await AssetAssistant.AddressAsset<T>(path);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Audio load failed: {path}, {ex}");
+                return null;
+            }
         }
 
-        public static void wake()
-        {
-        }
+        private class FakeMono : MonoBehaviour { }
+
+        public static void Wake() { }
+        #endregion
     }
 }
