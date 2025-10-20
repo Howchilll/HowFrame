@@ -11,7 +11,6 @@
             InputAssistant.Wake();
             CoroutineAssistant.DelayInvoke("11",1, () =>
             {
-                InputAssistant.ApplyControlScheme("PC");
                 InputAssistant.EnableMap("Move");
                 InputAssistant.EnableMap("Attack");
                 InputAssistant.BindAction("Move","MoveAround",OnMove);

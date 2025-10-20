@@ -3,6 +3,7 @@ using UnityEngine.InputSystem;
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using UnityEngine.InputSystem.LowLevel;
 
 namespace HowFrame
 {
@@ -13,6 +14,7 @@ namespace HowFrame
         private static readonly Dictionary<InputAction, List<Action<InputAction.CallbackContext>>> _callbacks = new();
         private static bool _initialized = false;
         private static PlayerInput _playerInput;
+        private static string _currentScheme = "Keyboard&Mouse";
         /// <summary>
         /// 初始化异步加载 Asset
         /// </summary>
@@ -50,7 +52,7 @@ namespace HowFrame
                 _initialized = true;
 
                 // 设备变化监听
-                InputSystem.onDeviceChange += OnDeviceChange;
+                InputSystem.onEvent += OnInputEvent;
             });
         }
 
@@ -129,30 +131,43 @@ namespace HowFrame
         #endregion
 
         #region ControlScheme / 设备切换
-        private static void OnDeviceChange(InputDevice device, InputDeviceChange change)
+        private static void OnInputEvent(InputEventPtr eventPtr, InputDevice device)
         {
-            if (!_initialized) return;
+            if (!_initialized || device == null || !eventPtr.IsA<StateEvent>() && !eventPtr.IsA<DeltaStateEvent>())
+                return;
 
-            switch (change)
+            // 忽略无效输入帧
+            if (!eventPtr.valid) return;
+
+            // 检测设备类型
+            if (device is Gamepad)
             {
-                case InputDeviceChange.Added:
-                    if (device is Gamepad)
-                    {
-                        Debug.Log("[InputAssistant] 检测到手柄接入，可切换到 Gamepad Scheme");
-                        // TODO: 根据你的方案切换 Control Scheme
-                    }
-                    break;
+                if (_currentScheme != "Gamepad")
+                {
+                    _currentScheme = "Gamepad";
+                  ApplyControlScheme("Gamepad");  
+                    Debug.Log("[InputAssistant] 检测到手柄输入，切换到 Gamepad Scheme");
+                }
+            }
+            else if (device is Keyboard || device is Mouse)
+            {
+                if (_currentScheme != "Keyboard&Mouse")
+                {
+                    ApplyControlScheme("PC");  
 
-                case InputDeviceChange.Removed:
-                    if (device is Gamepad)
-                    {
-                        Debug.Log("[InputAssistant] 手柄拔出，可切回 Keyboard&Mouse Scheme");
-                        // TODO: 根据你的方案切换 Control Scheme
-                    }
-                    break;
+                    _currentScheme = "Keyboard&Mouse";
+                    Debug.Log("[InputAssistant] 检测到键鼠输入，切换到 Keyboard&Mouse Scheme");
+                }
+            }
+            else if (device is Touchscreen)
+            {
+                if (_currentScheme != "Touch")
+                {
+                    _currentScheme = "Touch";
+                    Debug.Log("[InputAssistant] 检测到触摸输入，切换到 Touch Scheme");
+                }
             }
         }
-
         // 可选：静态辅助方法手动切 ControlScheme，需要 PlayerInput 支持
 
 
@@ -172,6 +187,23 @@ namespace HowFrame
 
         public static void Wake(){}
         
+#if UNITY_EDITOR
+        [UnityEditor.InitializeOnLoadMethod]
+        private static void EditorPlayModeMonitor()
+        {
+            UnityEditor.EditorApplication.playModeStateChanged += state =>
+            {
+                if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode)
+                {
+                    InputSystem.onEvent -= OnInputEvent;
+                    _playerInput = null;
+                    _initialized = false;
+                    Debug.Log("[InputAssistant] 清理完毕，防止退出PlayMode时异常。");
+                }
+            };
+        }
+#endif
+
     }
     
 }
