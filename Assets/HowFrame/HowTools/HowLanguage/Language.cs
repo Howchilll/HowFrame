@@ -4,10 +4,10 @@ using UnityEngine;
 namespace HowFrame
 {
 
-internal class Language 
-{
-  public string LanguageName;
-  
-  public Dictionary<string, string> LanguageDictionary = new Dictionary<string, string>();
-}
+    internal class Language 
+    {
+        public string LanguageType;
+        public string LanguageModule ;
+        public Dictionary<string, string> LanguageDictionary = new Dictionary<string, string>();
+    }
 }

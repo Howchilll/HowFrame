@@ -15,30 +15,41 @@ public class AddressableAutoIncremental : AssetPostprocessor
         string[] movedAssets, string[] movedFromAssetPaths)
     {
         var settings = AddressableAssetSettingsDefaultObject.Settings;
-        if (settings == null) return;
-        // 🚫 如果这次操作完全不在 RootFolder 下，直接返回
+        if (settings == null)
+        {
+            Debug.LogWarning("⚠️ Addressable Settings 未找到，请先打开 Addressables 窗口创建 Settings.");
+            return;
+        }
+
         bool hasRelevantChange =
             importedAssets.Any(p => p.StartsWith(RootFolder)) ||
             deletedAssets.Any(p => p.StartsWith(RootFolder)) ||
             movedAssets.Any(p => p.StartsWith(RootFolder)) ||
             movedFromAssetPaths.Any(p => p.StartsWith(RootFolder));
 
-        if (!hasRelevantChange)
-            return;
+        if (!hasRelevantChange) return;
+
         // ---------------- 新增/修改 ----------------
         foreach (var assetPath in importedAssets)
         {
             if (!assetPath.StartsWith(RootFolder)) continue;
-            if (assetPath.EndsWith(".meta") || assetPath.EndsWith(".cs") || assetPath.EndsWith(".dll")) continue;
             if (AssetDatabase.IsValidFolder(assetPath)) continue;
+            if (assetPath.EndsWith(".meta") || assetPath.EndsWith(".cs") || assetPath.EndsWith(".dll")) continue;
 
             string groupName = GetGroupName(assetPath);
             var group = string.IsNullOrEmpty(groupName) ? settings.DefaultGroup : GetOrCreateGroup(settings, groupName);
 
             string guid = AssetDatabase.AssetPathToGUID(assetPath);
-            var entry = settings.CreateOrMoveEntry(guid, group);
+            var entry = settings.FindAssetEntry(guid);
+            if (entry == null)
+            {
+                entry = settings.CreateOrMoveEntry(guid, group, false, false);
+            }
+            else if (entry.parentGroup != group)
+            {
+                settings.MoveEntry(entry, group, false);
+            }
 
-            // 取文件名（不带扩展名）作为地址
             entry.address = System.IO.Path.GetFileNameWithoutExtension(assetPath);
         }
 
@@ -46,9 +57,15 @@ public class AddressableAutoIncremental : AssetPostprocessor
         foreach (var assetPath in deletedAssets)
         {
             if (!assetPath.StartsWith(RootFolder)) continue;
+
             string guid = AssetDatabase.AssetPathToGUID(assetPath);
-            if (!string.IsNullOrEmpty(guid))
+            if (string.IsNullOrEmpty(guid)) continue;
+
+            var entry = settings.FindAssetEntry(guid);
+            if (entry != null)
+            {
                 settings.RemoveAssetEntry(guid);
+            }
         }
 
         // ---------------- 移动/重命名 ----------------
@@ -57,36 +74,42 @@ public class AddressableAutoIncremental : AssetPostprocessor
             string newPath = movedAssets[i];
             string oldPath = movedFromAssetPaths[i];
 
-            if (!newPath.StartsWith(RootFolder)) continue;
+            bool movedIntoRoot = !oldPath.StartsWith(RootFolder) && newPath.StartsWith(RootFolder);
+            bool movedInsideRoot = oldPath.StartsWith(RootFolder) && newPath.StartsWith(RootFolder);
+
+            if (!movedIntoRoot && !movedInsideRoot)
+                continue; // 移出 RootFolder 的不处理
 
             string guid = AssetDatabase.AssetPathToGUID(newPath);
             var entry = settings.FindAssetEntry(guid);
-            if (entry != null)
+
+            string groupName = GetGroupName(newPath);
+            var group = string.IsNullOrEmpty(groupName) ? settings.DefaultGroup : GetOrCreateGroup(settings, groupName);
+
+            if (entry == null)
             {
-                // 更新地址（只保留文件名，不带扩展名）
-                entry.address = System.IO.Path.GetFileNameWithoutExtension(newPath);
-
-                // 更新分组
-                string groupName = GetGroupName(newPath);
-                var group = string.IsNullOrEmpty(groupName) ? settings.DefaultGroup : GetOrCreateGroup(settings, groupName);
-                if (entry.parentGroup != group)
-                    settings.MoveEntry(entry, group, false);
+                // 从外部拖入 GameRes 或全新资源
+                entry = settings.CreateOrMoveEntry(guid, group, false, false);
             }
+            else if (entry.parentGroup != group)
+            {
+                settings.MoveEntry(entry, group, false);
+            }
+
+            entry.address = System.IO.Path.GetFileNameWithoutExtension(newPath);
         }
 
-        if (importedAssets.Length + deletedAssets.Length + movedAssets.Length > 0)
-        {
-            settings.SetDirty(AddressableAssetSettings.ModificationEvent.EntryMoved, null, true);
-            AssetDatabase.SaveAssets();
-            Debug.Log("✅ Addressables 增量同步完成（地址已简化）");
-        }
+        // ---------------- 保存修改 ----------------
+        settings.SetDirty(AddressableAssetSettings.ModificationEvent.EntryMoved, null, true);
+        AssetDatabase.SaveAssets();
+        Debug.Log("✅ Addressables 增量同步完成（自动加入并简化地址）");
     }
 
     private static string GetGroupName(string assetPath)
     {
-        string relative = assetPath.Substring(RootFolder.Length + 1); // 去掉 RootFolder + "/"
+        string relative = assetPath.Substring(RootFolder.Length + 1);
         string[] parts = relative.Split('/');
-        return parts.Length > 1 ? parts[0] : null; // 子文件夹 -> 独立组，根目录 -> 默认组
+        return parts.Length > 1 ? parts[0] : null;
     }
 
     private static AddressableAssetGroup GetOrCreateGroup(AddressableAssetSettings settings, string groupName)
@@ -96,7 +119,10 @@ public class AddressableAutoIncremental : AssetPostprocessor
 
         group = settings.CreateGroup(groupName, false, false, false, null,
             typeof(BundledAssetGroupSchema), typeof(ContentUpdateGroupSchema));
-        group.GetSchema<BundledAssetGroupSchema>().BundleMode = BundledAssetGroupSchema.BundlePackingMode.PackTogether;
+        var bundleSchema = group.GetSchema<BundledAssetGroupSchema>();
+        if (bundleSchema != null)
+            bundleSchema.BundleMode = BundledAssetGroupSchema.BundlePackingMode.PackTogether;
+
         return group;
     }
 }

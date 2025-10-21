@@ -19,13 +19,13 @@ public class ExamplePanel : PanelBase
         
         CButton.onClick.AddListener(()=>
         {
-            LangManager.LoadLangData("Chinese");
+           // LangManager.LoadLangData("Chinese");
             TextLangCheck();
         });
         
         EButton.onClick.AddListener(()=>
         {
-            LangManager.LoadLangData("English");
+          //  LangManager.LoadLangData("English");
             TextLangCheck();
         });
 

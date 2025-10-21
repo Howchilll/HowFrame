@@ -9,8 +9,8 @@ public class EnumCreator : EditorWindow
     private EnumRoot root = new EnumRoot();
 
     private string enumNamespace = "HowEnum";
-    private string jsonOutputDir = "Assets/JsonData";
-    private string csOutputDir = "Assets/GeneratedEnum";
+    private string jsonOutputDir = "Assets/Editor/HowEditorConfig";
+    private string csOutputDir = "Assets/HowFrame/HowEnum/Enums";
     private Vector2 scrollPos;
 
     // 配置文件存放路径（固定存到 Editor 下，避免和导出 json 混淆）
@@ -37,17 +37,17 @@ public class EnumCreator : EditorWindow
 
     private void OnGUI()
     {
-        GUILayout.Label("JSON 集合编辑器", EditorStyles.boldLabel);
+        GUILayout.Label("Enum 定义", EditorStyles.boldLabel);
 
         GUILayout.BeginHorizontal();
-        root.collectionName = EditorGUILayout.TextField("集合名字", root.collectionName);
+        root.collectionName = EditorGUILayout.TextField("enum名字", root.collectionName);
         if (GUILayout.Button("加载", GUILayout.Width(60)))
         {
+            root.collectionName += "Enum";
             LoadJson();
         }
         GUILayout.EndHorizontal();
-
-        GUILayout.Label("C# Enum 生成参数", EditorStyles.boldLabel);
+        GUILayout.Label("输出参数", EditorStyles.boldLabel);
         enumNamespace = EditorGUILayout.TextField("命名空间", enumNamespace);
         jsonOutputDir = EditorGUILayout.TextField("JSON 输出路径", jsonOutputDir);
         csOutputDir = EditorGUILayout.TextField("C# 输出路径", csOutputDir);
@@ -63,19 +63,20 @@ public class EnumCreator : EditorWindow
 
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("一键导出 JSON + C# 脚本"))
-        {
+        {   root.collectionName += "Enum";
             ExportAll();
+            AssetDatabase.Refresh();
         }
         GUILayout.EndHorizontal();
 
-        AssetDatabase.Refresh();
+     
     }
 
     private void ExportAll()
     {
         if (string.IsNullOrEmpty(root.collectionName))
         {
-            Debug.LogWarning("请先填写集合名字，生成类名将使用集合名字！");
+            Debug.LogWarning("请先填写枚举名字，生成类名将用枚举名字！");
             return;
         }
 

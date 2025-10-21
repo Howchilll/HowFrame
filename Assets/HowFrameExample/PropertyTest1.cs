@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 using HowFrame;
-using static HowEnum.ExampleEnum;
+
 public class PropertyTest1 : MonoBehaviour
 {
 

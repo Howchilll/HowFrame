@@ -4,11 +4,12 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine.InputSystem.LowLevel;
-
+using HowEnum;
 namespace HowFrame
 {
     public static class InputAssistant
     {
+        public readonly static  Ref<EnumKey<InputEnum.Tag>> InputType=new Ref<EnumKey<InputEnum.Tag>>();
         private static InputActionAsset _asset;
         private static readonly Dictionary<string, InputActionMap> _maps = new();
         private static readonly Dictionary<InputAction, List<Action<InputAction.CallbackContext>>> _callbacks = new();
@@ -23,9 +24,6 @@ namespace HowFrame
             UniTask.Void(async () =>
             {
                 InputActionAsset asset = await AssetAssistant.AddressAsset<InputActionAsset>("HowInputActions");
-
-
-
                 _asset = asset;
                 
                 _maps.Clear();
@@ -50,9 +48,12 @@ namespace HowFrame
                 Debug.Log($"[InputAssistant] 已加载 {_maps.Count} 个 ActionMap。");
 
                 _initialized = true;
-
+                InputType.Value=InputEnum.MouseKeyboard;
                 // 设备变化监听
                 InputSystem.onEvent += OnInputEvent;
+
+                PropertyAssistant.SetObj(GlobalEventEnum.InputTypeChange, InputType);
+              //  PropertyAssistant.SetEvent<EnumKey<InputEnum.Tag>>(GlobalEventEnum.InputTypeChange, (inputType) => { });
             });
         }
 
@@ -135,7 +136,6 @@ namespace HowFrame
         {
             if (!_initialized || device == null || !eventPtr.IsA<StateEvent>() && !eventPtr.IsA<DeltaStateEvent>())
                 return;
-
             // 忽略无效输入帧
             if (!eventPtr.valid) return;
 
@@ -147,6 +147,7 @@ namespace HowFrame
                     _currentScheme = "Gamepad";
                   ApplyControlScheme("Gamepad");  
                     Debug.Log("[InputAssistant] 检测到手柄输入，切换到 Gamepad Scheme");
+                    InputType.Value = InputEnum.GamePad;
                 }
             }
             else if (device is Keyboard || device is Mouse)
@@ -157,6 +158,7 @@ namespace HowFrame
 
                     _currentScheme = "Keyboard&Mouse";
                     Debug.Log("[InputAssistant] 检测到键鼠输入，切换到 Keyboard&Mouse Scheme");
+                    InputType.Value = InputEnum.MouseKeyboard;
                 }
             }
             else if (device is Touchscreen)
@@ -185,9 +187,102 @@ namespace HowFrame
         }
         #endregion
 
-        public static void Wake(){}
+
         
-#if UNITY_EDITOR
+        #region Rebinding（按键重绑定）
+
+
+    private static InputActionRebindingExtensions.RebindingOperation _rebindingOperation;
+
+
+    public static void StartRebind(string mapName, string actionName, Action onComplete = null, Action onCancel = null)
+    {
+        if (!_maps.TryGetValue(mapName, out var map))
+        {
+            Debug.LogWarning($"[InputAssistant] StartRebind失败：Map不存在 {mapName}");
+            return;
+        }
+
+        var action = map.FindAction(actionName);
+        if (action == null)
+        {
+            Debug.LogWarning($"[InputAssistant] StartRebind失败：Action不存在 {actionName}");
+            return;
+        }
+
+        if (_rebindingOperation != null)
+        {
+            Debug.LogWarning("[InputAssistant] 已有Rebind操作正在进行。");
+            return;
+        }
+
+        Debug.Log($"[InputAssistant] 开始重绑定 {mapName}/{actionName}，等待玩家输入...");
+
+        action.Disable(); // 暂时禁用，防止旧绑定触发
+
+        _rebindingOperation = action.PerformInteractiveRebinding()
+            .WithControlsExcluding("Mouse/position")
+            .WithControlsExcluding("Mouse/delta")
+            .OnMatchWaitForAnother(0.1f) // 等待更稳定的输入
+            .OnComplete(op =>
+            {
+                action.Enable();
+                op.Dispose();
+                _rebindingOperation = null;
+                onComplete?.Invoke();
+                Debug.Log($"[InputAssistant] 已重新绑定 {actionName} 为 {action.bindings[action.bindings.Count - 1].effectivePath}");
+            })
+            .OnCancel(op =>
+            {
+                action.Enable();
+                op.Dispose();
+                _rebindingOperation = null;
+                onCancel?.Invoke();
+                Debug.Log("[InputAssistant] 重绑定取消。");
+            });
+
+        _rebindingOperation.Start();
+    }
+
+
+    public static void RebindToKey(string mapName, string actionName, string newBindingPath)
+    {
+        if (!_maps.TryGetValue(mapName, out var map))
+        {
+            Debug.LogWarning($"[InputAssistant] RebindToKey失败：Map不存在 {mapName}");
+            return;
+        }
+
+        var action = map.FindAction(actionName);
+        if (action == null)
+        {
+            Debug.LogWarning($"[InputAssistant] RebindToKey失败：Action不存在 {actionName}");
+            return;
+        }
+
+        // 清除旧绑定并应用新键
+        action.ApplyBindingOverride(newBindingPath);
+        Debug.Log($"[InputAssistant] {actionName} 已绑定到 {newBindingPath}");
+    }
+
+
+    public static void CancelRebind()
+    {
+         if (_rebindingOperation != null)
+        {
+            _rebindingOperation.Cancel();
+            _rebindingOperation.Dispose();
+            _rebindingOperation = null;
+            Debug.Log("[InputAssistant] 手动取消Rebind。");
+        }
+    }
+#endregion
+
+        
+        
+        
+        
+        #if UNITY_EDITOR
         [UnityEditor.InitializeOnLoadMethod]
         private static void EditorPlayModeMonitor()
         {
@@ -202,8 +297,8 @@ namespace HowFrame
                 }
             };
         }
-#endif
-
+        #endif
+        public static void Wake(){}
     }
     
 }
