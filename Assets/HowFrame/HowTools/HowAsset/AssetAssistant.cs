@@ -24,40 +24,74 @@ public enum E_AssetType
 
 public static class AssetAssistant
 {
-    public static async Task<T> ImportAsset<T>(string fileName)
+ public static async Task<T> ImportAsset<T>(string relativePath) where T : Object
     {
+        string fullPath = Path.Combine(Application.streamingAssetsPath, relativePath);
+        string extension = Path.GetExtension(fullPath).ToLower();
+
+        // Android 上 streamingAssetsPath 是一个 URI，例如 "jar:file:///data/app/xxx.apk!/assets/"
+        // 所以路径要统一成 URI 格式
+        if (!fullPath.StartsWith("jar:") && !fullPath.StartsWith("file:"))
+            fullPath = "file://" + fullPath;
+
+        // 🧩 音频文件
         if (typeof(T) == typeof(AudioClip))
         {
-            string path = Path.Combine(Application.streamingAssetsPath,"Music/"+fileName);
-            string audioPath = null;
             AudioType audioType = AudioType.UNKNOWN;
+            switch (extension)
+            {
+                case ".wav": audioType = AudioType.WAV; break;
+                case ".mp3": audioType = AudioType.MPEG; break;
+                case ".ogg": audioType = AudioType.OGGVORBIS; break;
+                default:
+                    Debug.LogError($"Unsupported audio format: {extension}");
+                    return default;
+            }
 
-            if (File.Exists(path + ".wav"))
-            {
-                audioPath = path + ".wav";
-                audioType = AudioType.WAV;
-            }
-            else if (File.Exists(path + ".mp3"))
-            {
-                audioPath = path + ".mp3";
-                audioType = AudioType.MPEG;
-            }
-            if (string.IsNullOrEmpty(audioPath))
-            {
-                Debug.LogError("Audio file not found at: " + path);
-                return default;
-            }
-            using (UnityWebRequest request = UnityWebRequestMultimedia.GetAudioClip(audioPath, audioType))
+            using (var request = UnityWebRequestMultimedia.GetAudioClip(fullPath, audioType))
             {
                 await request.SendWebRequest();
                 if (request.result != UnityWebRequest.Result.Success)
                 {
-                    Debug.LogError($"Failed to load audio clip: {request.error}");
+                    Debug.LogError($"Audio load failed: {request.error}");
                     return default;
                 }
                 return (T)(object)DownloadHandlerAudioClip.GetContent(request);
             }
         }
+
+        // 🧩 图片文件
+        if (typeof(T) == typeof(Texture2D))
+        {
+            using (var request = UnityWebRequestTexture.GetTexture(fullPath))
+            {
+                await request.SendWebRequest();
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogError($"Texture load failed: {request.error}");
+                    return default;
+                }
+                return (T)(object)DownloadHandlerTexture.GetContent(request);
+            }
+        }
+
+        // 🧩 文本文件（json、txt、xml等）
+        if (typeof(T) == typeof(TextAsset))
+        {
+            using (var request = UnityWebRequest.Get(fullPath))
+            {
+                await request.SendWebRequest();
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogError($"Text load failed: {request.error}");
+                    return default;
+                }
+                string text = request.downloadHandler.text;
+                return (T)(object)new TextAsset(text);
+            }
+        }
+
+        Debug.LogError($"Unsupported type {typeof(T).Name} for file: {relativePath}");
         return default;
     }
 

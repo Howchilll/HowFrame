@@ -33,7 +33,7 @@ public class ExamplePanel : PanelBase
 
     private void TextLangCheck()
     {
-        HP.text = LangManager.LanDic["HP"] + ":" + ArchiveData.Hp;
+       // HP.text = LangManager.LanDic["HP"] + ":" + ArchiveData.Hp;
     }
     
     

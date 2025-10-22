@@ -11,6 +11,8 @@ public class EnumCreator : EditorWindow
     private string enumNamespace = "HowEnum";
     private string jsonOutputDir = "Assets/Editor/HowEditorConfig";
     private string csOutputDir = "Assets/HowFrame/HowEnum/Enums";
+    private bool enableConvertMethods = false;
+    private bool enableGetAllMethod = false;
     private Vector2 scrollPos;
 
     // 配置文件存放路径（固定存到 Editor 下，避免和导出 json 混淆）
@@ -25,6 +27,8 @@ public class EnumCreator : EditorWindow
         window.enumNamespace = EditorPrefs.GetString("EnumCreator_Namespace", "HowEnum");
         window.jsonOutputDir = EditorPrefs.GetString("EnumCreator_JsonOutputDir", "Assets/JsonData");
         window.csOutputDir = EditorPrefs.GetString("EnumCreator_CSOutputDir", "Assets/GeneratedEnum");
+        window.enableConvertMethods = EditorPrefs.GetBool("EnumCreator_EnableConvert", false);
+        window.enableGetAllMethod = EditorPrefs.GetBool("EnumCreator_EnableGetAll", false);
 
         // 自动加载配置
         window.LoadEditorConfig();
@@ -43,7 +47,8 @@ public class EnumCreator : EditorWindow
         root.collectionName = EditorGUILayout.TextField("enum名字", root.collectionName);
         if (GUILayout.Button("加载", GUILayout.Width(60)))
         {
-            root.collectionName += "Enum";
+            if(!root.collectionName.EndsWith("Enum"))
+                 root.collectionName += "Enum";
             LoadJson();
         }
         GUILayout.EndHorizontal();
@@ -51,11 +56,15 @@ public class EnumCreator : EditorWindow
         enumNamespace = EditorGUILayout.TextField("命名空间", enumNamespace);
         jsonOutputDir = EditorGUILayout.TextField("JSON 输出路径", jsonOutputDir);
         csOutputDir = EditorGUILayout.TextField("C# 输出路径", csOutputDir);
+        enableConvertMethods = EditorGUILayout.Toggle("启用Convert方法", enableConvertMethods);
+        enableGetAllMethod = EditorGUILayout.Toggle("启用GetAll方法", enableGetAllMethod);
 
         // 保存到 EditorPrefs
         EditorPrefs.SetString("EnumCreator_Namespace", enumNamespace);
         EditorPrefs.SetString("EnumCreator_JsonOutputDir", jsonOutputDir);
         EditorPrefs.SetString("EnumCreator_CSOutputDir", csOutputDir);
+        EditorPrefs.SetBool("EnumCreator_EnableConvert", enableConvertMethods);
+        EditorPrefs.SetBool("EnumCreator_EnableGetAll", enableGetAllMethod);
 
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
         DrawElements(root.elements, 0);
@@ -63,7 +72,8 @@ public class EnumCreator : EditorWindow
 
         GUILayout.BeginHorizontal();
         if (GUILayout.Button("一键导出 JSON + C# 脚本"))
-        {   root.collectionName += "Enum";
+        {   if(!root.collectionName.EndsWith("Enum"))
+                root.collectionName += "Enum";
             ExportAll();
             AssetDatabase.Refresh();
         }
@@ -93,7 +103,7 @@ public class EnumCreator : EditorWindow
         if (!Directory.Exists(resolvedCsDir))
             Directory.CreateDirectory(resolvedCsDir);
 
-        EnumGenerater.Generate(root, enumNamespace, root.collectionName, resolvedCsDir);
+        EnumGenerater.Generate(root, enumNamespace, root.collectionName, resolvedCsDir, enableConvertMethods, enableGetAllMethod);
         Debug.Log("C# Enum 脚本已生成到: " + resolvedCsDir);
     }
 
