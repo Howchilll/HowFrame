@@ -149,15 +149,23 @@ public class LanguageConfiger : EditorWindow
         langEntries.Clear();
         string[] csFiles = Directory.GetFiles(Application.dataPath, "*.cs", SearchOption.AllDirectories);
 
+        // 扫描固定字符串的GetLangContent调用
         Regex regex = new Regex(
             @"GetLangContent\s*\(\s*(?:(?:[\w\.]+\.)?LangModuleEnum\.(\w+)\s*,\s*)?""([^""]+)""\s*\)"
+        );
+        
+        // 扫描注释中的语言键定义
+        Regex commentRegex = new Regex(
+            @"//\s*GetLangContent\s*:\s*(\w+)\s*,\s*\{([^}]+)\}",
+            RegexOptions.IgnoreCase
         );
 
         foreach (var file in csFiles)
         {
             string content = File.ReadAllText(file);
+            
+            // 扫描固定字符串的GetLangContent调用
             MatchCollection matches = regex.Matches(content);
-
             foreach (Match match in matches)
             {
                 string module = match.Groups[1].Success && !string.IsNullOrEmpty(match.Groups[1].Value)
@@ -170,6 +178,28 @@ public class LanguageConfiger : EditorWindow
                 {
                     if (!langEntries.ContainsKey(key))
                         langEntries[key] = "";
+                }
+            }
+            
+            // 扫描注释中的语言键定义
+            MatchCollection commentMatches = commentRegex.Matches(content);
+            foreach (Match commentMatch in commentMatches)
+            {
+                string module = commentMatch.Groups[1].Value;
+                string keysString = commentMatch.Groups[2].Value;
+                
+                if (module.Equals(selectedModule.ToString(), System.StringComparison.OrdinalIgnoreCase))
+                {
+                    // 解析键列表，支持 "str1","str2" 格式
+                    string[] keys = keysString.Split(',');
+                    foreach (string key in keys)
+                    {
+                        string cleanKey = key.Trim().Trim('"', '\'', ' ');
+                        if (!string.IsNullOrEmpty(cleanKey) && !langEntries.ContainsKey(cleanKey))
+                        {
+                            langEntries[cleanKey] = "";
+                        }
+                    }
                 }
             }
         }
