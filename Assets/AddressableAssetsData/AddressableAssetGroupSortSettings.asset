@@ -11,10 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dea69d41f90c6ea4fa55c27c1d60c145, type: 3}
   m_Name: AddressableAssetGroupSortSettings
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.GroupSchemas.AddressableAssetGroupSortSettings
   sortOrder:
-  - 0ce523af0652f3a48b4fa6a481bf375e
-  - 30ee296edd915de41b5edf3ab72275c8
-  - 32abe9e7cfcd49d4cabd36f1be5f812b
-  - dcde6b08fe55946468e273b2b02a18ab
-  - fa94af1ff7e45594a88bd86d6f860594
+  - 392b9a42c2708a941a601b0136606b4c
+  - d7ef3b8c4628ead42abe944af1a447e3

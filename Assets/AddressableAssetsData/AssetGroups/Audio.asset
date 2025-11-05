@@ -11,12 +11,12 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
   m_Name: Audio
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
   m_GroupName: Audio
-  m_GUID: fa94af1ff7e45594a88bd86d6f860594
+  m_GUID: 392b9a42c2708a941a601b0136606b4c
   m_SerializeEntries:
-  - m_GUID: 279a0a1c22c47e14e835907a73993138
-    m_Address: "\u6309\u6309\u94AE"
+  - m_GUID: 295f920080d5706409ba6d47cfe6d8ca
+    m_Address: GameObject
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
