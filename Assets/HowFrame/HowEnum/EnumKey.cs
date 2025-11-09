@@ -4,10 +4,18 @@ namespace HowEnum
 
     public record EnumKey<TTag> : EnumKeyBase
     {
+        public string name;
+        internal EnumKey(string name)
+        {
+            this.name = name;
+        }
+        
         internal EnumKey()
         {
             
         }
+        
+        
     }
     
 }

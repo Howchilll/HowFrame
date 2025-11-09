@@ -28,10 +28,10 @@ public static class EnumGenerater
         sb.AppendLine("        public class Tag { }");
         sb.AppendLine();
 
-        // 输出元素
+        // 输出元素 - 生成嵌套类结构
         foreach (var elem in root.elements)
         {
-            AppendElementCode(sb, elem, 2, "Tag");
+            AppendElementCode(sb, elem, 2, "Tag", "");
         }
 
         // 如果启用Convert方法，生成Convert方法
@@ -45,7 +45,7 @@ public static class EnumGenerater
         if (enableGetAllMethod)
         {
             sb.AppendLine();
-            GenerateGetAllMethod(sb, root.elements, 2, "Tag");
+            GenerateGetAllMethod(sb, root.elements, 2, "Tag", "");
         }
 
         sb.AppendLine("    }");
@@ -58,27 +58,32 @@ public static class EnumGenerater
         UnityEngine.Debug.Log("生成 Enum 脚本：" + filePath);
     }
 
-    private static void AppendElementCode(StringBuilder sb, EnumElement elem, int indentLevel, string tagType)
+    // 生成元素代码（支持嵌套类）
+    private static void AppendElementCode(StringBuilder sb, EnumElement elem, int indentLevel, string tagType, string parentPath)
     {
         string indent = new string(' ', indentLevel * 4);
 
         if (elem.isList)
         {
-            // 子集合 → 静态类，子类继续用父级 tagType
+            // 子集合 → 静态类
             sb.AppendLine($"{indent}public static class {elem.groupName}");
             sb.AppendLine($"{indent}{{");
 
+            // 计算当前路径
+            string currentPath = string.IsNullOrEmpty(parentPath) ? elem.groupName : $"{parentPath}.{elem.groupName}";
+
             foreach (var child in elem.children)
             {
-                AppendElementCode(sb, child, indentLevel + 1, tagType);
+                AppendElementCode(sb, child, indentLevel + 1, tagType, currentPath);
             }
 
             sb.AppendLine($"{indent}}}");
         }
         else
         {
-            // 普通元素 → 静态字段，带泛型 Tag
-            sb.AppendLine($"{indent}public static readonly EnumKey<{tagType}> {elem.value} = new();");
+            // 普通元素 → 静态字段，使用完整路径作为构造函数的 name 参数
+            string fullPath = string.IsNullOrEmpty(parentPath) ? elem.value : $"{parentPath}.{elem.value}";
+            sb.AppendLine($"{indent}public static readonly EnumKey<{tagType}> {elem.value} = new(\"{fullPath}\");");
         }
     }
 
@@ -101,7 +106,9 @@ public static class EnumGenerater
             if (!elem.isList)
             {
                 string fullPath = string.IsNullOrEmpty(currentPath) ? elem.value : $"{currentPath}.{elem.value}";
-                sb.AppendLine($"{indent}        case \"{fullPath}\": return {elem.value};");
+                // 如果是顶层字段，访问路径就是字段名；如果是嵌套字段，访问路径是 类名.字段名
+                string accessPath = string.IsNullOrEmpty(currentPath) ? elem.value : $"{currentPath}.{elem.value}";
+                sb.AppendLine($"{indent}        case \"{fullPath}\": return {accessPath};");
             }
             else
             {
@@ -113,35 +120,6 @@ public static class EnumGenerater
         
         sb.AppendLine($"{indent}        default: throw new System.ArgumentException($\"Unknown value: {{value}}\");");
         sb.AppendLine($"{indent}    }}");
-        sb.AppendLine($"{indent}}}");
-        sb.AppendLine();
-        
-        // 生成反向Convert方法
-        sb.AppendLine($"{indent}/// <summary>");
-        sb.AppendLine($"{indent}/// 将EnumKey转换为字符串");
-        sb.AppendLine($"{indent}/// </summary>");
-        sb.AppendLine($"{indent}public static string Convert(EnumKey<{tagType}> enumKey)");
-        sb.AppendLine($"{indent}{{");
-        sb.AppendLine($"{indent}    if (enumKey == null) return null;");
-        sb.AppendLine();
-        
-        // 为每个元素生成if判断
-        foreach (var elem in elements)
-        {
-            if (!elem.isList)
-            {
-                string fullPath = string.IsNullOrEmpty(currentPath) ? elem.value : $"{currentPath}.{elem.value}";
-                sb.AppendLine($"{indent}    if (enumKey == {elem.value}) return \"{fullPath}\";");
-            }
-            else
-            {
-                // 处理嵌套类
-                string nestedPath = string.IsNullOrEmpty(currentPath) ? elem.groupName : $"{currentPath}.{elem.groupName}";
-                GenerateConvertMethodsForNestedReverse(sb, elem.children, indentLevel + 1, tagType, nestedPath, elem.groupName);
-            }
-        }
-        
-        sb.AppendLine($"{indent}    throw new System.ArgumentException($\"Unknown enumKey: {{enumKey}}\");");
         sb.AppendLine($"{indent}}}");
     }
 
@@ -164,26 +142,8 @@ public static class EnumGenerater
         }
     }
 
-    private static void GenerateConvertMethodsForNestedReverse(StringBuilder sb, List<EnumElement> children, int indentLevel, string tagType, string currentPath, string className)
-    {
-        string indent = new string(' ', indentLevel * 4);
-        
-        foreach (var child in children)
-        {
-            if (!child.isList)
-            {
-                string fullPath = string.IsNullOrEmpty(currentPath) ? child.value : $"{currentPath}.{child.value}";
-                sb.AppendLine($"{indent}    if (enumKey == {className}.{child.value}) return \"{fullPath}\";");
-            }
-            else
-            {
-                string nestedPath = string.IsNullOrEmpty(currentPath) ? child.groupName : $"{currentPath}.{child.groupName}";
-                GenerateConvertMethodsForNestedReverse(sb, child.children, indentLevel, tagType, nestedPath, $"{className}.{child.groupName}");
-            }
-        }
-    }
 
-    private static void GenerateGetAllMethod(StringBuilder sb, List<EnumElement> elements, int indentLevel, string tagType)
+    private static void GenerateGetAllMethod(StringBuilder sb, List<EnumElement> elements, int indentLevel, string tagType, string currentPath)
     {
         string indent = new string(' ', indentLevel * 4);
         
@@ -201,12 +161,14 @@ public static class EnumGenerater
         {
             if (!elem.isList)
             {
-                sb.AppendLine($"{indent}        {elem.value},");
+                string accessPath = string.IsNullOrEmpty(currentPath) ? elem.value : $"{currentPath}.{elem.value}";
+                sb.AppendLine($"{indent}        {accessPath},");
             }
             else
             {
                 // 处理嵌套类
-                GenerateGetAllForNested(sb, elem.children, indentLevel + 2, tagType, elem.groupName);
+                string nestedPath = string.IsNullOrEmpty(currentPath) ? elem.groupName : $"{currentPath}.{elem.groupName}";
+                GenerateGetAllForNested(sb, elem.children, indentLevel + 2, tagType, nestedPath, elem.groupName);
             }
         }
         
@@ -214,7 +176,7 @@ public static class EnumGenerater
         sb.AppendLine($"{indent}}}");
     }
 
-    private static void GenerateGetAllForNested(StringBuilder sb, List<EnumElement> children, int indentLevel, string tagType, string className)
+    private static void GenerateGetAllForNested(StringBuilder sb, List<EnumElement> children, int indentLevel, string tagType, string currentPath, string className)
     {
         string indent = new string(' ', indentLevel * 4);
         
@@ -227,7 +189,8 @@ public static class EnumGenerater
             else
             {
                 // 递归处理更深层的嵌套
-                GenerateGetAllForNested(sb, child.children, indentLevel, tagType, $"{className}.{child.groupName}");
+                string nestedPath = string.IsNullOrEmpty(currentPath) ? child.groupName : $"{currentPath}.{child.groupName}";
+                GenerateGetAllForNested(sb, child.children, indentLevel, tagType, nestedPath, $"{className}.{child.groupName}");
             }
         }
     }

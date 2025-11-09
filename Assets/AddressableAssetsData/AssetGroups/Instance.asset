@@ -10,13 +10,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
-  m_Name: Default Local Group
+  m_Name: Instance
   m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
-  m_GroupName: Default Local Group
-  m_GUID: d7ef3b8c4628ead42abe944af1a447e3
+  m_GroupName: Instance
+  m_GUID: 31a1b48687e16104797bf7dfc6877552
   m_SerializeEntries:
-  - m_GUID: 1fae107c9cba34a4090c62367bd84964
-    m_Address: Cube
+  - m_GUID: 1d60eab16c1bcfb409c9315420c8d5b1
+    m_Address: Canvas
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a0b3060b78009a143958c6a32246a3f5
+    m_Address: AudioMixer
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e9c44f6788cc08d44b0bf7da0878d608
+    m_Address: HowInputActions
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -24,5 +34,5 @@ MonoBehaviour:
   m_Settings: {fileID: 11400000, guid: 8f8312ca45bbc3f409f5323528460195, type: 2}
   m_SchemaSet:
     m_Schemas:
-    - {fileID: 11400000, guid: a377a21248bc37b4ba303e0d5a3c3de7, type: 2}
-    - {fileID: 11400000, guid: eda9ed9377c06134e8dfce5583068363, type: 2}
+    - {fileID: 11400000, guid: c316ec22161dc5f4a8a2f7932c125ae3, type: 2}
+    - {fileID: 11400000, guid: 29338ec06126d95468e0fb9e5d9a2161, type: 2}

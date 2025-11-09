@@ -4,13 +4,14 @@ namespace HowEnum
     {
         public class Tag { }
 
-        public static readonly EnumKey<Tag> HP = new();
-        public static readonly EnumKey<Tag> SP = new();
-        public static readonly EnumKey<Tag> EXE = new();
+        public static readonly EnumKey<Tag> HP = new("HP");
+        public static readonly EnumKey<Tag> SP = new("SP");
+        public static readonly EnumKey<Tag> EXE = new("EXE");
         public static class Body
         {
-            public static readonly EnumKey<Tag> Hight = new();
-            public static readonly EnumKey<Tag> Weight = new();
+            public static readonly EnumKey<Tag> Hight = new("Body.Hight");
+            public static readonly EnumKey<Tag> Weight = new("Body.Weight");
+            public static readonly EnumKey<Tag> YYP = new("Body.YYP");
         }
 
         /// <summary>
@@ -25,23 +26,9 @@ namespace HowEnum
                 case "EXE": return EXE;
                     case "Body.Hight": return Body.Hight;
                     case "Body.Weight": return Body.Weight;
+                    case "Body.YYP": return Body.YYP;
                 default: throw new System.ArgumentException($"Unknown value: {value}");
             }
-        }
-
-        /// <summary>
-        /// 将EnumKey转换为字符串
-        /// </summary>
-        public static string Convert(EnumKey<Tag> enumKey)
-        {
-            if (enumKey == null) return null;
-
-            if (enumKey == HP) return "HP";
-            if (enumKey == SP) return "SP";
-            if (enumKey == EXE) return "EXE";
-                if (enumKey == Body.Hight) return "Body.Hight";
-                if (enumKey == Body.Weight) return "Body.Weight";
-            throw new System.ArgumentException($"Unknown enumKey: {enumKey}");
         }
 
         /// <summary>
@@ -56,6 +43,7 @@ namespace HowEnum
                 EXE,
                 Body.Hight,
                 Body.Weight,
+                Body.YYP,
             };
         }
     }

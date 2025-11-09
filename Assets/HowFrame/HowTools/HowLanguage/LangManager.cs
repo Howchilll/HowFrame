@@ -3,7 +3,8 @@ using System.IO;
 using static HowFrame.DataAssitant;
 using UnityEngine;
 using HowEnum;
-using Unity.Plastic.Newtonsoft.Json;
+using LitJson;
+
 
 namespace HowFrame
 {
@@ -73,7 +74,8 @@ public static class LangManager
             {
                 try
                 {
-                    var dic = JsonConvert.DeserializeObject<Dictionary<string, string>>(langText.text);
+                    var dic = JsonMapper.ToObject<Dictionary<string, string>>(langText.text);
+
                     if (dic != null)
                     {
                         landic[item] = dic;

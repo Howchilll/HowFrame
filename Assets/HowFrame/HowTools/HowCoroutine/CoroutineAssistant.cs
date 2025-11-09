@@ -88,7 +88,23 @@ namespace HowFrame
         }
 
         #endregion
+        
+        #region Anonymous Version
 
+        public static void DelayInvoke(float delay, Action onComplete)
+        {
+            if (delay <= 0f) delay = Time.deltaTime;
+            Runner.StartCoroutine(DelayAnonymous(delay, onComplete));
+        }
+
+        private static IEnumerator DelayAnonymous(float delay, Action onComplete)
+        {
+            yield return new WaitForSeconds(delay);
+            onComplete?.Invoke();
+        }
+
+        #endregion
+        
         #region Core Coroutines
 
         private static IEnumerator RunLoop(float interval, Action onTick, Action onStart, string name, Dictionary<string, Coroutine> dict)

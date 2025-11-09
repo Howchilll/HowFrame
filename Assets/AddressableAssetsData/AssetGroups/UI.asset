@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
-  m_Name: Default Local Group
+  m_Name: UI
   m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
-  m_GroupName: Default Local Group
-  m_GUID: d7ef3b8c4628ead42abe944af1a447e3
+  m_GroupName: UI
+  m_GUID: be701ac352d6b18438c100bdef8bc415
   m_SerializeEntries:
-  - m_GUID: 1fae107c9cba34a4090c62367bd84964
-    m_Address: Cube
+  - m_GUID: 544abdc95e3aa3f4f840dce992f808e6
+    m_Address: ExamplePanel
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -24,5 +24,5 @@ MonoBehaviour:
   m_Settings: {fileID: 11400000, guid: 8f8312ca45bbc3f409f5323528460195, type: 2}
   m_SchemaSet:
     m_Schemas:
-    - {fileID: 11400000, guid: a377a21248bc37b4ba303e0d5a3c3de7, type: 2}
-    - {fileID: 11400000, guid: eda9ed9377c06134e8dfce5583068363, type: 2}
+    - {fileID: 11400000, guid: b1bd15f4377473b4fb2960346a0f1242, type: 2}
+    - {fileID: 11400000, guid: 3ac0f48bd5fc32c459bfd2b6dab83f05, type: 2}

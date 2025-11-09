@@ -122,6 +122,42 @@ namespace HowFrame
             Hide(false, UINames);
         }
 
+        public static void Hide(PanelBase panel, bool destroy = false)
+        {
+            if (panel == null) return;
+
+            string targetKey = null;
+
+            // 直接通过引用查找对应 key
+            foreach (var pair in UIObjects)
+            {
+                if (pair.Value == panel)
+                {
+                    targetKey = pair.Key;
+                    break;
+                }
+            }
+
+            if (targetKey == null)
+            {
+                Debug.LogWarning($"UIManager: 未在管理列表中找到该面板引用 {panel.GetType().Name}");
+                return;
+            }
+
+            panel.WhenHide();
+
+            if (destroy)
+            {
+                Object.Destroy(panel.gameObject);
+                UIObjects.Remove(targetKey);
+            }
+            else
+            {
+                panel.gameObject.SetActive(false);
+            }
+        }
+
+
         #endregion
 
         public static void wake() { }

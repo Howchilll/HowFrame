@@ -1,1 +1,1 @@
-{"collectionName":"PlayerEnum","elements":["HP","SP","EXE",{"groupName":"Body","children":["Hight","Weight"]}]}
+{"collectionName":"PlayerEnum","elements":["HP","SP","EXE",{"groupName":"Body","children":["Hight","Weight","YYP"]}]}
