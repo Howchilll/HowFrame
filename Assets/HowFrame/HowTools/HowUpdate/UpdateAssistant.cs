@@ -36,13 +36,13 @@ namespace HowFrame
             if (Updater.Should1) system1.Invoke();
         }
 
-        public static void UnityUpdate(Action action, int order, int fps = 60)
+        public static void UnityUpdate(Action action, int order = 0, int fps = 60)
         {
             var oa = GetOrder(fps);
             oa += (action, order);
         }
 
-        public static void SystemUpdate(Action action, int order, int fps = 60)
+        public static void SystemUpdate(Action action, int order = 0, int fps = 60)
         {
             var sa = GetSystem(fps);
             sa += (action, order);
