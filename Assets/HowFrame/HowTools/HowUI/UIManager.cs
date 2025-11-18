@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.Linq;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using HowEnum;
 using static HowFrame.AssetAssistant;
 
 namespace HowFrame
@@ -9,88 +11,68 @@ namespace HowFrame
     {
         private static Canvas Canvas;
         private static readonly Dictionary<string, PanelBase> UIObjects = new Dictionary<string, PanelBase>();
-
-        static UIManager()
-        {
-            UniTask.Void(async () =>
-            {
-                GameObject canvasObj = await AddressAsset<GameObject>("Canvas");
-                if (canvasObj == null)
-                {
-                    Debug.LogError("UIManager: Canvas 加载失败!");
-                    return;
-                }
-
-                canvasObj = Object.Instantiate(canvasObj);
-                Canvas = canvasObj.GetComponent<Canvas>();
-                if (Canvas == null)
-                {
-                    Debug.LogError("UIManager: Canvas 组件不存在!");
-                    return;
-                }
-
-                Camera oldCamera = Canvas.worldCamera;
-                Canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                Canvas.worldCamera = null;
-                if (oldCamera != null) Object.Destroy(oldCamera.gameObject);
-
-                Object.DontDestroyOnLoad(Canvas.gameObject);
-            });
-        }
+        private static bool _initialized = false;
 
         #region Show UI
 
         public static void Show(bool father = false, params string[] UINames)
         {
-            UniTask.Void(async () =>
+            Transform fatherTransform = Canvas.transform;
+
+            if (father && UIObjects.ContainsKey(UINames[0]))
+                fatherTransform = UIObjects[UINames[0]].transform;
+
+            foreach (var name in UINames)
             {
-                Transform fatherTransform = Canvas.transform;
-
-                if (father && UIObjects.ContainsKey(UINames[0]))
-                    fatherTransform = UIObjects[UINames[0]].transform;
-
-                foreach (var name in UINames)
+                if (!UIObjects.ContainsKey(name))
                 {
-                    if (!UIObjects.ContainsKey(name))
+                    if (father && fatherTransform == UIObjects[UINames[0]].transform)
                     {
-                        if (father && fatherTransform == UIObjects[UINames[0]].transform)
-                        {
-                            // 跳过父级的 Show
-                            father = false;
-                            continue;
-                        }
-
-                        GameObject uiPrefab = await AddressAsset<GameObject>(name);
-                        if (uiPrefab == null)
-                        {
-                            Debug.LogError($"UI 预设体 {name} 加载失败");
-                            continue;
-                        }
-
-                        var uiObj = Object.Instantiate(uiPrefab, fatherTransform);
-                        var panel = uiObj.GetComponent<PanelBase>();
-                        if (panel == null)
-                        {
-                            Debug.LogError($"UI 预设体 {name} 上没有 PanelBase 组件");
-                            Object.Destroy(uiObj);
-                            continue;
-                        }
-
-                        UIObjects[name] = panel;
-                    }
-                    else
-                    {
-                        UIObjects[name].gameObject.SetActive(true);
+                        // 跳过父级的 Show
+                        father = false;
+                        continue;
                     }
 
-                    UIObjects[name].WhenShow();
+                    GameObject uiPrefab = AddressableGet<GameObject>(name);
+                    if (uiPrefab == null)
+                    {
+                        Debug.LogError($"UI 预设体 {name} 加载失败");
+                        continue;
+                    }
+
+                    var uiObj = Object.Instantiate(uiPrefab, fatherTransform);
+                    var panel = uiObj.GetComponent<PanelBase>();
+                    if (panel == null)
+                    {
+                        Debug.LogError($"UI 预设体 {name} 上没有 PanelBase 组件");
+                        Object.Destroy(uiObj);
+                        continue;
+                    }
+
+                    UIObjects[name] = panel;
                 }
-            });
+                else
+                {
+                    UIObjects[name].gameObject.SetActive(true);
+                }
+
+                UIObjects[name].WhenShow();
+            }
         }
 
         public static void Show(params string[] UINames)
         {
             Show(false, UINames);
+        }
+
+        public static void Show(bool father = false, params EnumKeyBase[] UINames)
+        {
+            Show(father, UINames.Select(k => k.name).ToArray());
+        }
+
+        public static void Show(params EnumKeyBase[] UINames)
+        {
+            Show(false, UINames.Select(k => k.name).ToArray());
         }
 
         #endregion
@@ -120,6 +102,16 @@ namespace HowFrame
         public static void Hide(params string[] UINames)
         {
             Hide(false, UINames);
+        }
+
+        public static void Hide(bool destroy = false, params EnumKeyBase[] UINames)
+        {
+            Hide(destroy, UINames.Select(k => k.name).ToArray());
+        }
+
+        public static void Hide(params EnumKeyBase[] UINames)
+        {
+            Hide(false, UINames.Select(k => k.name).ToArray());
         }
 
         public static void Hide(PanelBase panel, bool destroy = false)
@@ -160,6 +152,35 @@ namespace HowFrame
 
         #endregion
 
-        public static void wake() { }
+        /// <summary>
+        /// 初始化 UIManager（延迟初始化，在资源加载完成后调用）
+        /// </summary>
+        public static void Wake()
+        {
+            if (_initialized) return; // 防止重复初始化
+
+            GameObject canvasObj = AddressableGet<GameObject>("Canvas");
+            if (canvasObj == null)
+            {
+                Debug.LogError("UIManager: Canvas 加载失败!");
+                return;
+            }
+
+            canvasObj = Object.Instantiate(canvasObj);
+            Canvas = canvasObj.GetComponent<Canvas>();
+            if (Canvas == null)
+            {
+                Debug.LogError("UIManager: Canvas 组件不存在!");
+                return;
+            }
+
+            Camera oldCamera = Canvas.worldCamera;
+            Canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            Canvas.worldCamera = null;
+            if (oldCamera != null) Object.Destroy(oldCamera.gameObject);
+
+            Object.DontDestroyOnLoad(Canvas.gameObject);
+            _initialized = true;
+        }
     }
 }

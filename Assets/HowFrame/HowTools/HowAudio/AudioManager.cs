@@ -33,8 +33,6 @@ namespace HowFrame
 
         private const int MaxSoundCache = 50; // 最大缓存音效数量
 
-        static AudioManager() => Init();
-
         private static void Init()
         {
             if (_audioManagerObject != null) return;
@@ -45,13 +43,12 @@ namespace HowFrame
             Object.DontDestroyOnLoad(_audioPool);
 
             _audioManagerObject.AddComponent<FakeMono>();
-            UniTask.Void(async () =>
+            _mixer = AssetAssistant.AddressableGet<AudioMixer>("AudioMixer");
+            if (_mixer != null)
             {
-                _mixer =await AssetAssistant.AddressAsset<AudioMixer>("AudioMixer");
                 _musicGroup = _mixer.FindMatchingGroups("Master").FirstOrDefault();
                 _soundGroup = _mixer.FindMatchingGroups("Master").FirstOrDefault();
-            });
-
+            }
         }
 
         #region Music
@@ -59,33 +56,30 @@ namespace HowFrame
         public static void AddMusic(string fileName, float delay = 0, float volume = 1,
             GameObject father = null, float minDis = 1, float maxDis = 10)
         {
-            UniTask.Void(async () =>
+            try
             {
-                try
+                if (MusicSources.ContainsKey(fileName)) return;
+
+                AudioClip clip;
+                if (!MusicClips.TryGetValue(fileName, out clip))
                 {
-                    if (MusicSources.ContainsKey(fileName)) return;
-
-                    AudioClip clip;
-                    if (!MusicClips.TryGetValue(fileName, out clip))
-                    {
-                        clip = await SafeLoad<AudioClip>(fileName);
-                        if (!clip) return;
-                        MusicClips[fileName] = clip;
-                    }
-
-                    AudioSource source = GetSoundSource();
-                    SetupAudioSource(source, clip, father, volume, minDis, maxDis, true, true);
-
-                    MusicSources[fileName] = source;
-
-                    _audioManagerObject.GetComponent<FakeMono>()
-                        .StartCoroutine(PlayMusicCoroutine(delay, source));
+                    clip = SafeLoad<AudioClip>(fileName);
+                    if (!clip) return;
+                    MusicClips[fileName] = clip;
                 }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"AddMusic {fileName} failed: {ex}");
-                }
-            });
+
+                AudioSource source = GetSoundSource();
+                SetupAudioSource(source, clip, father, volume, minDis, maxDis, true, true);
+
+                MusicSources[fileName] = source;
+
+                _audioManagerObject.GetComponent<FakeMono>()
+                    .StartCoroutine(PlayMusicCoroutine(delay, source));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"AddMusic {fileName} failed: {ex}");
+            }
         }
 
         public static void EndMusic(string fileName)
@@ -138,30 +132,27 @@ namespace HowFrame
         public static void AddSound(string fileName, float delayTime = 0, float volume = 1, int types = 1,
             GameObject father = null, float minDis = 1, float maxDis = 10)
         {
-            UniTask.Void(async () =>
+            try
             {
-                try
-                {
-                    string tag = fileName + (father ? father.name : "null");
-                    if (SoundCheck.Contains(tag)) return;
-                    SoundCheck.Add(tag);
+                string tag = fileName + (father ? father.name : "null");
+                if (SoundCheck.Contains(tag)) return;
+                SoundCheck.Add(tag);
 
-                    string soundName = types > 1 ? fileName + Random.Range(1, types + 1) : fileName;
+                string soundName = types > 1 ? fileName + Random.Range(1, types + 1) : fileName;
 
-                    AudioClip clip = await GetSoundClip(soundName);
-                    if (!clip) return;
+                AudioClip clip = GetSoundClip(soundName);
+                if (!clip) return;
 
-                    AudioSource source = GetSoundSource();
-                    SetupAudioSource(source, clip, father, volume, minDis, maxDis, false, false);
+                AudioSource source = GetSoundSource();
+                SetupAudioSource(source, clip, father, volume, minDis, maxDis, false, false);
 
-                    _audioManagerObject.GetComponent<FakeMono>()
-                        .StartCoroutine(PlaySoundCoroutine(delayTime, source, tag));
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"AddSound {fileName} failed: {ex}");
-                }
-            });
+                _audioManagerObject.GetComponent<FakeMono>()
+                    .StartCoroutine(PlaySoundCoroutine(delayTime, source, tag));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"AddSound {fileName} failed: {ex}");
+            }
         }
 
         private static IEnumerator PlaySoundCoroutine(float delayTime, AudioSource source, string tag)
@@ -177,7 +168,7 @@ namespace HowFrame
             ReturnSourceToPool(source);
         }
 
-        private static async UniTask<AudioClip> GetSoundClip(string name)
+        private static AudioClip GetSoundClip(string name)
         {
             if (Time.time - _lastCleanupTime > 30)
             {
@@ -187,7 +178,7 @@ namespace HowFrame
 
             if (!SoundClips.TryGetValue(name, out var clip))
             {
-                clip = await SafeLoad<AudioClip>(name);
+                clip = SafeLoad<AudioClip>(name);
                 if (!clip) return null;
 
                 SoundClips[name] = clip;
@@ -277,11 +268,11 @@ namespace HowFrame
             }
         }
 
-        private static async UniTask<T> SafeLoad<T>(string path) where T : Object
+        private static T SafeLoad<T>(string path) where T : Object
         {
             try
             {
-                return await AssetAssistant.AddressAsset<T>(path);
+                return AssetAssistant.AddressableGet<T>(path);
             }
             catch (Exception ex)
             {
@@ -292,7 +283,13 @@ namespace HowFrame
 
         private class FakeMono : MonoBehaviour { }
 
-        public static void Wake() { }
+        /// <summary>
+        /// 初始化 AudioManager（延迟初始化，在资源加载完成后调用）
+        /// </summary>
+        public static void Wake()
+        {
+            Init();
+        }
         #endregion
     }
 }

@@ -12,16 +12,15 @@ public static class SceneLoadAssistant
     public static bool ChangeSign = false;
     private static GameObject _sceneLoadManager = null;
     private static FakeMono _fakeMono = null;
+    private static bool _initialized = false;
 
-    static SceneLoadAssistant()
+    public static void LoadScene(string sceneName, bool changeSign = true)
     {
-        _sceneLoadManager = new GameObject("SceneLoadManager");
-        _fakeMono = _sceneLoadManager.AddComponent<FakeMono>();
-        Object.DontDestroyOnLoad(_sceneLoadManager);
-    }
-
-    public static void LoadScene(string sceneName,bool changeSign = true)
-    {
+        if (_fakeMono == null)
+        {
+            Debug.LogError("SceneLoadAssistant: 未初始化，请先调用 Wake()");
+            Wake(); // 自动初始化以保持向后兼容
+        }
         ChangeSign = changeSign;
         _fakeMono.StartCoroutine(_LoadScene(sceneName));
     }
@@ -52,12 +51,20 @@ public static class SceneLoadAssistant
         ChangeSign = false;
     }
 
-    public static void wake(){}
-    
+    /// <summary>
+    /// 初始化 SceneLoadAssistant（延迟初始化，在资源加载完成后调用）
+    /// </summary>
+    public static void Wake()
+    {
+        if (_initialized) return; // 防止重复初始化
+        _sceneLoadManager = new GameObject("SceneLoadManager");
+        _fakeMono = _sceneLoadManager.AddComponent<FakeMono>();
+        Object.DontDestroyOnLoad(_sceneLoadManager);
+        _initialized = true;
+    }
+
     private class FakeMono : MonoBehaviour
     {
     }
-
-
 }
 }

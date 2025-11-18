@@ -24,8 +24,6 @@ namespace HowFrame
 
         private static readonly Dictionary<string, EntryBase> _dict = new Dictionary<string, EntryBase>();
 
-        private static readonly Dictionary<EnumKeyBase, EntryBase>_enumDict = new Dictionary<EnumKeyBase, EntryBase>(); // 链式绑定代理
-
         public class BindHelper<T>
         {
             private readonly string _key;
@@ -81,59 +79,41 @@ namespace HowFrame
         {
             foreach (var e in _dict.Values) e.Unbind();
             _dict.Clear();
-            foreach (var e in _enumDict.Values) e.Unbind();
-            _enumDict.Clear();
-        } // ----------- EnumKeyBase 版本 ----------- // 链式绑定代理
+        }
+
+        // ----------- EnumKeyBase 版本 ----------- // 链式绑定代理
 
         public class EnumBindHelper<T>
         {
-            private readonly EnumKeyBase _key;
+            private readonly string _key;
 
-            public EnumBindHelper(EnumKeyBase key)
+            public EnumBindHelper(string key)
             {
                 _key = key;
             }
 
             public void OnChange(Action<T> callback)
             {
-                SetEvent(_key, callback);
+                SetEvent<T>(_key, callback);
             }
         }
 
         public static void SetEvent<T>(EnumKeyBase key, Action<T> callback)
         {
-            if (!_enumDict.TryGetValue(key, out var baseEntry))
-            {
-                baseEntry = new Entry<T>();
-                _enumDict[key] = baseEntry;
-            }
-
-            var entry = (Entry<T>)baseEntry;
-            entry.Callback = callback;
-            if (entry.Obj != null) entry.Obj.OnChanged += callback;
+            SetEvent<T>(key.name, callback);
         }
 
         public static EnumBindHelper<T> SetObj<T>(EnumKeyBase key, Ref<T> obj)
         {
-            if (!_enumDict.TryGetValue(key, out var baseEntry))
-            {
-                baseEntry = new Entry<T>();
-                _enumDict[key] = baseEntry;
-            }
-
-            var entry = (Entry<T>)baseEntry;
-            entry.Obj = obj;
-            if (entry.Callback != null) obj.OnChanged += entry.Callback;
-            return new EnumBindHelper<T>(key);
+            SetObj<T>(key.name, obj);
+            return new EnumBindHelper<T>(key.name);
         }
 
         public static void Remove(EnumKeyBase key)
         {
-            if (_enumDict.TryGetValue(key, out var entry))
-            {
-                entry.Unbind();
-                _enumDict.Remove(key);
-            }
+            Remove(key.name);
         }
+        
+        public static void Wake(){}
     }
 }

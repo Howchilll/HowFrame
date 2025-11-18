@@ -8,7 +8,6 @@ namespace HowFrame
     public static class ThreadAssistant
     {
         private static readonly Dictionary<string, ThreadHelper> _threads = new();
-        private static readonly Dictionary<EnumKeyBase, ThreadHelper> _enumThreads = new();
 
         #region 字符串 Key 版本
 
@@ -43,27 +42,17 @@ namespace HowFrame
 
         public static void StartLoop(EnumKeyBase key, int intervalMillis, Action onTick, Action onStart = null)
         {
-            Stop(key);
-            var helper = new ThreadHelper(intervalMillis, onTick, onStart);
-            _enumThreads[key] = helper;
-            helper.Start();
+            StartLoop(key.name, intervalMillis, onTick, onStart);
         }
 
         public static void DelayInvoke(EnumKeyBase key, int delayMillis, Action onComplete)
         {
-            Stop(key);
-            var helper = new ThreadHelper(delayMillis, null, null, onComplete);
-            _enumThreads[key] = helper;
-            helper.Start();
+            DelayInvoke(key.name, delayMillis, onComplete);
         }
 
         public static void Stop(EnumKeyBase key)
         {
-            if (_enumThreads.TryGetValue(key, out var helper))
-            {
-                helper.Stop();
-                _enumThreads.Remove(key);
-            }
+            Stop(key.name);
         }
 
         #endregion

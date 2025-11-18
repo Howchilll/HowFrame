@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
-using static HowFrame.DataAssitant;
+using static HowFrame.DataAssistant;
 using UnityEngine;
 using HowEnum;
 using LitJson;
@@ -13,13 +13,10 @@ public static class LangManager
 {
     private static Ref<EnumKey<LangTypeEnum.Tag>> NowLang = new();
     public static List<EnumKey<LangModuleEnum.Tag>> ModuleList;
-    private static Dictionary<EnumKey<LangModuleEnum.Tag>, Dictionary<string, string>> landic=new Dictionary<EnumKey<LangModuleEnum.Tag>, Dictionary<string, string>>();
+    private static Dictionary<EnumKey<LangModuleEnum.Tag>, Dictionary<string, string>> landic = new Dictionary<EnumKey<LangModuleEnum.Tag>, Dictionary<string, string>>();
+    private static bool _initialized = false;
 
     private static string _langName;
-    static LangManager()
-    {
-        ModuleList = LangModuleEnum.GetAll();
-    }
 
     
     public static string GetLangContent(EnumKey<LangModuleEnum.Tag> LangModule,string key)
@@ -92,7 +89,15 @@ public static class LangManager
             }
         }
     }
-    
-    public static void wake(){}
+
+    /// <summary>
+    /// 初始化 LangManager（延迟初始化，在资源加载完成后调用）
+    /// </summary>
+    public static void Wake()
+    {
+        if (_initialized) return; // 防止重复初始化
+        ModuleList = LangModuleEnum.GetAll();
+        _initialized = true;
+    }
 }
 }

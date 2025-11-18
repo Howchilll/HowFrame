@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using static HowFrame.DataAssitant;
+using static HowFrame.DataAssistant;
 namespace HowFrame
 {
 

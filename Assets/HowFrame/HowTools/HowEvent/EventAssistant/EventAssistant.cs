@@ -39,37 +39,26 @@ public static class EventAssistant
     public static void ClearAll()
     {
         EventDictionary.Clear();
-        EnumEventDictionary.Clear();
     }
-    
-    private static readonly Dictionary<EnumKeyBase, Action> EnumEventDictionary = new();
 
     public static void Subscribe(EnumKeyBase key, Action listener)
     {
-        if (!EnumEventDictionary.ContainsKey(key)) EnumEventDictionary[key] = listener;
-        else EnumEventDictionary[key] += listener;
+        Subscribe(key.name, listener);
     }
 
     public static void Unsubscribe(EnumKeyBase key, Action listener)
     {
-        if (EnumEventDictionary.ContainsKey(key))
-        {
-            EnumEventDictionary[key] -= listener;
-            if (EnumEventDictionary[key] == null) EnumEventDictionary.Remove(key);
-        }
+        Unsubscribe(key.name, listener);
     }
 
     public static void Invoke(EnumKeyBase key)
     {
-        if (EnumEventDictionary.TryGetValue(key, out var action)) action?.Invoke();
-#if UNITY_EDITOR
-        else Debug.LogWarning($"[EventAssistant] EnumKeyBase 事件未注册: {key}");
-#endif
+        Invoke(key.name);
     }
 
     public static void ClearOne(EnumKeyBase key)
     {
-        if (EnumEventDictionary.ContainsKey(key)) EnumEventDictionary.Remove(key);
+        ClearOne(key.name);
     }
 
 }
@@ -118,44 +107,26 @@ public static class EventAssistant<T, TResult>
     public static void ClearAll()
     {
         EventDictionary.Clear();
-        EnumEventDictionary.Clear();
     }
-    private static readonly Dictionary<EnumKeyBase, Func<T, TResult>> EnumEventDictionary = new();
 
     public static void Subscribe(EnumKeyBase key, Func<T, TResult> func)
     {
-        if (EnumEventDictionary.ContainsKey(key))
-            EnumEventDictionary[key] += func;
-        else
-            EnumEventDictionary[key] = func;
+        Subscribe(key.name, func);
     }
 
     public static void Unsubscribe(EnumKeyBase key, Func<T, TResult> func)
     {
-        if (EnumEventDictionary.ContainsKey(key))
-        {
-            EnumEventDictionary[key] -= func;
-            if (EnumEventDictionary[key] == null)
-                EnumEventDictionary.Remove(key);
-        }
+        Unsubscribe(key.name, func);
     }
 
     public static TResult Invoke(EnumKeyBase key, T arg)
     {
-        if (EnumEventDictionary.TryGetValue(key, out var func))
-        {
-            return func.Invoke(arg);
-        }
-
-#if UNITY_EDITOR
-        Debug.LogWarning($"[EventAssistant<{typeof(T).Name}, {typeof(TResult).Name}>] EnumKeyBase 事件未注册: {key}");
-#endif
-        return default;
+        return Invoke(key.name, arg);
     }
 
     public static void ClearOne(EnumKeyBase key)
     {
-        if (EnumEventDictionary.ContainsKey(key)) EnumEventDictionary.Remove(key);
+        ClearOne(key.name);
     }
 
 

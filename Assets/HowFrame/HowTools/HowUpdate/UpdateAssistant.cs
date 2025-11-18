@@ -13,12 +13,7 @@ namespace HowFrame
         private static readonly OrderAction system30 = new();
         private static readonly OrderAction system15 = new();
         private static readonly OrderAction system1 = new();
-
-        static UpdateAssistant()
-        {
-            // 自动注册到 Updater，使用自动心跳
-            Updater.Instance.RegisterStatic(UnityUpdater, SystemUpdater);
-        }
+        private static bool _initialized = false;
 
         private static void UnityUpdater()
         {
@@ -83,5 +78,16 @@ namespace HowFrame
             1 => system1,
             _ => throw new ArgumentException($"不支持的帧率 {fps}")
         };
+
+        /// <summary>
+        /// 初始化 UpdateAssistant（延迟初始化，在资源加载完成后调用）
+        /// </summary>
+        public static void Wake()
+        {
+            if (_initialized) return; // 防止重复初始化
+            // 自动注册到 Updater，使用自动心跳
+            Updater.Instance.RegisterStatic(UnityUpdater, SystemUpdater);
+            _initialized = true;
+        }
     }
 }

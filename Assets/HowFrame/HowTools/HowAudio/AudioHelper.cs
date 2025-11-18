@@ -22,16 +22,13 @@ namespace HowFrame
             _audioSource = _host.gameObject.AddComponent<AudioSource>();
             SetAudioSourceParameters();
 
-            // 异步加载音效
-            UniTask.Void(async () =>
+            // 加载音效（从缓存中同步获取）
+            foreach (var name in audioNames)
             {
-                foreach (var name in audioNames)
-                {
-                    var clip = await SafeLoadClip(name);
-                    if (clip != null)
-                        _clipDict[name] = clip;
-                }
-            });
+                var clip = SafeLoadClip(name);
+                if (clip != null)
+                    _clipDict[name] = clip;
+            }
         }
 
         /// <summary>
@@ -91,13 +88,14 @@ namespace HowFrame
         public List<AudioClip> GetAllClips() => new List<AudioClip>(_clipDict.Values);
 
         /// <summary>
-        /// 安全加载音效
+        /// 安全加载音效（从缓存中同步获取）
+        /// 注意：资源需要先通过 LoadLabelsAsync 加载到缓存中
         /// </summary>
-        private static async UniTask<AudioClip> SafeLoadClip(string name)
+        private static AudioClip SafeLoadClip(string name)
         {
             try
             {
-                return await AddressAsset<AudioClip>(name);
+                return AddressableGet<AudioClip>(name);
             }
             catch (Exception e)
             {

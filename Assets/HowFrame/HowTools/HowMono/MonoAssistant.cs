@@ -7,6 +7,7 @@ public static class MonoAssistant
 {
 
         private static MonoHelper _instance;
+        private static bool _initialized = false;
         private static MonoHelper Instance
         {
             get
@@ -20,8 +21,6 @@ public static class MonoAssistant
                 return _instance;
             }
         }
-
-        static MonoAssistant() => Instance.Init();
 
         // 内部存储事件，避免重复添加
         private static event Action _onUpdate;
@@ -80,6 +79,14 @@ public static class MonoAssistant
             private void LateUpdate() => _onLateUpdate?.Invoke();
         }
 
-        internal static void wake() { }
+        /// <summary>
+        /// 初始化 MonoAssistant（延迟初始化，在资源加载完成后调用）
+        /// </summary>
+        internal static void Wake()
+        {
+            if (_initialized) return; // 防止重复初始化
+            Instance.Init();
+            _initialized = true;
+        }
     }
 }

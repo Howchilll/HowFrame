@@ -9,7 +9,6 @@ namespace HowFrame
     public class EventHelper
     {
         private readonly Dictionary<string, Action> _stringEvents = new();
-        private readonly Dictionary<EnumKeyBase, Action> _enumEvents = new();
 
         // ---------- 字符串 Key ----------
         public void Subscribe(string key, Action listener)
@@ -45,40 +44,29 @@ namespace HowFrame
         // ---------- EnumKeyBase Key ----------
         public void Subscribe(EnumKeyBase key, Action listener)
         {
-            if (!_enumEvents.ContainsKey(key)) _enumEvents[key] = listener;
-            else _enumEvents[key] += listener;
+            Subscribe(key.name, listener);
         }
 
         public void Unsubscribe(EnumKeyBase key, Action listener)
         {
-            if (_enumEvents.ContainsKey(key))
-            {
-                _enumEvents[key] -= listener;
-                if (_enumEvents[key] == null) _enumEvents.Remove(key);
-            }
+            Unsubscribe(key.name, listener);
         }
 
         public void Invoke(EnumKeyBase key)
         {
-            if (_enumEvents.TryGetValue(key, out var action)) action?.Invoke();
-#if UNITY_EDITOR
-            else Debug.LogWarning($"[EventHelper] EnumKeyBase 事件未注册: {key}");
-#endif
+            Invoke(key.name);
         }
 
         public void ClearOne(EnumKeyBase key)
         {
-            if (_enumEvents.ContainsKey(key)) _enumEvents.Remove(key);
+            ClearOne(key.name);
         }
-
-        public void ClearAllEnum() => _enumEvents.Clear();
     }
 
     // ---------------- 泛型事件对象版 ----------------
     public class EventHelper<T, TResult>
     {
         private readonly Dictionary<string, Func<T, TResult>> _stringEvents = new();
-        private readonly Dictionary<EnumKeyBase, Func<T, TResult>> _enumEvents = new();
 
         // ---------- 字符串 Key ----------
         public void Subscribe(string key, Func<T, TResult> func)
@@ -118,36 +106,22 @@ namespace HowFrame
         // ---------- EnumKeyBase Key ----------
         public void Subscribe(EnumKeyBase key, Func<T, TResult> func)
         {
-            if (_enumEvents.ContainsKey(key))
-                _enumEvents[key] += func;
-            else
-                _enumEvents[key] = func;
+            Subscribe(key.name, func);
         }
 
         public void Unsubscribe(EnumKeyBase key, Func<T, TResult> func)
         {
-            if (_enumEvents.ContainsKey(key))
-            {
-                _enumEvents[key] -= func;
-                if (_enumEvents[key] == null) _enumEvents.Remove(key);
-            }
+            Unsubscribe(key.name, func);
         }
 
         public TResult Invoke(EnumKeyBase key, T arg)
         {
-            if (_enumEvents.TryGetValue(key, out var func)) return func.Invoke(arg);
-
-#if UNITY_EDITOR
-            Debug.LogWarning($"[EventHelper<{typeof(T).Name},{typeof(TResult).Name}>] EnumKeyBase 事件未注册: {key}");
-#endif
-            return default;
+            return Invoke(key.name, arg);
         }
 
         public void ClearOne(EnumKeyBase key)
         {
-            if (_enumEvents.ContainsKey(key)) _enumEvents.Remove(key);
+            ClearOne(key.name);
         }
-
-        public void ClearAllEnum() => _enumEvents.Clear();
     }
 }

@@ -11,17 +11,19 @@ public interface IRuntimeGet
 
 public static class TypeAssistant
 {
-    private static readonly Dictionary<string, Type> TypeDic;
+    private static Dictionary<string, Type> TypeDic;
+    private static bool _initialized = false;
 
-    static TypeAssistant()
+    public static void Wake()
     {
+        if (_initialized) return; // 防止重复初始化
+
         TypeDic = new Dictionary<string, Type>();
         foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
         {
             Type[] types;
             types = assembly.GetTypes();
-            
-            
+
             foreach (var type in types)
             {
                 if (type.IsAbstract) continue;
@@ -32,12 +34,17 @@ public static class TypeAssistant
                 }
             }
         }
+        _initialized = true;
     }
-
-    public static void wake(){}
     
     public static object GetInstance(string typeName)
     {
+        if (TypeDic == null)
+        {
+            Debug.LogError("TypeAssistant: 未初始化，请先调用 Wake()");
+            return null;
+        }
+
         if (TypeDic.TryGetValue(typeName, out var type))
         {
             return Activator.CreateInstance(type);

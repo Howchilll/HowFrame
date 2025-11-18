@@ -9,52 +9,52 @@ namespace HowFrame
 {
     public static class InputAssistant
     {
-        public readonly static  Ref<EnumKey<InputEnum.Tag>> InputType=new Ref<EnumKey<InputEnum.Tag>>();
+        public readonly static Ref<EnumKey<InputEnum.Tag>> InputType = new Ref<EnumKey<InputEnum.Tag>>();
         private static InputActionAsset _asset;
         private static readonly Dictionary<string, InputActionMap> _maps = new();
         private static readonly Dictionary<InputAction, List<Action<InputAction.CallbackContext>>> _callbacks = new();
         private static bool _initialized = false;
         private static PlayerInput _playerInput;
         private static string _currentScheme = "Keyboard&Mouse";
+
         /// <summary>
-        /// 初始化异步加载 Asset
+        /// 初始化加载 Asset（延迟初始化，在资源加载完成后调用）
         /// </summary>
-        static InputAssistant()
+        public static void Wake()
         {
-            UniTask.Void(async () =>
+            if (_initialized) return; // 防止重复初始化
+
+            InputActionAsset asset = AssetAssistant.AddressableGet<InputActionAsset>("HowInputActions");
+            _asset = asset;
+
+            if (asset == null)
             {
-                InputActionAsset asset = await AssetAssistant.AddressAsset<InputActionAsset>("HowInputActions");
-                _asset = asset;
-                
-                _maps.Clear();
-                foreach (var map in _asset.actionMaps)
-                {
-                    _maps[map.name] = map;
-                }
-                var go = new GameObject();
-                go.hideFlags = HideFlags.HideAndDontSave;
-                _playerInput = go.AddComponent<PlayerInput>();
-                _playerInput.actions = _asset;
-                _playerInput.notificationBehavior = PlayerNotifications.InvokeCSharpEvents;
+                Debug.LogError("[InputAssistant] Asset 加载失败");
+                return;
+            }
 
-                UnityEngine.Object.DontDestroyOnLoad(go); 
-                
-                if (asset == null)
-                {
-                    Debug.LogError("[InputAssistant] Asset 加载失败");
-                    return;
-                }
+            _maps.Clear();
+            foreach (var map in _asset.actionMaps)
+            {
+                _maps[map.name] = map;
+            }
+            var go = new GameObject();
+            go.hideFlags = HideFlags.HideAndDontSave;
+            _playerInput = go.AddComponent<PlayerInput>();
+            _playerInput.actions = _asset;
+            _playerInput.notificationBehavior = PlayerNotifications.InvokeCSharpEvents;
 
-                Debug.Log($"[InputAssistant] 已加载 {_maps.Count} 个 ActionMap。");
+            UnityEngine.Object.DontDestroyOnLoad(go);
 
-                _initialized = true;
-                InputType.Value=InputEnum.MouseKeyboard;
-                // 设备变化监听
-                InputSystem.onEvent += OnInputEvent;
+            Debug.Log($"[InputAssistant] 已加载 {_maps.Count} 个 ActionMap。");
 
-                PropertyAssistant.SetObj(GlobalEventEnum.InputTypeChange, InputType);
-              //  PropertyAssistant.SetEvent<EnumKey<InputEnum.Tag>>(GlobalEventEnum.InputTypeChange, (inputType) => { });
-            });
+            _initialized = true;
+            InputType.Value = InputEnum.MouseKeyboard;
+            // 设备变化监听
+            InputSystem.onEvent += OnInputEvent;
+
+            PropertyAssistant.SetObj(GlobalEventEnum.InputTypeChange, InputType);
+            //  PropertyAssistant.SetEvent<EnumKey<InputEnum.Tag>>(GlobalEventEnum.InputTypeChange, (inputType) => { });
         }
 
         #region Map管理
@@ -209,7 +209,5 @@ namespace HowFrame
             };
         }
         #endif
-        public static void Wake(){}
     }
-    
 }

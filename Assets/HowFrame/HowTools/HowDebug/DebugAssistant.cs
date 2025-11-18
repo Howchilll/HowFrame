@@ -149,5 +149,7 @@ public static class DebugAssistant
             default: return "white";
         }
     }
+    
+    public static void Wake(){}
 }
 }

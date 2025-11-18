@@ -7,7 +7,7 @@ using MessagePack;
 namespace HowFrame
 {
 
-public static class DataAssitant 
+public static class DataAssistant 
 {
     
     public static void WriteData(object data, string fileName,bool isJson=false, string upperPath ="")
@@ -66,7 +66,7 @@ public static class DataAssitant
         return default(T);
     }
     
-    internal static void wake(){}
+    internal static void Wake(){}
 }
 }
 
