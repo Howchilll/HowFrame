@@ -1,5 +1,5 @@
 using UnityEngine;
-using static HowFrame.DataAssitant;
+using static HowFrame.DataAssistant;
 
 namespace HowFrameExample
 {
