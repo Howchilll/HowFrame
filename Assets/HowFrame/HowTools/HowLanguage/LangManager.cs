@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using static HowFrame.DataAssistant;
 using UnityEngine;
 using HowEnum;
@@ -21,16 +22,21 @@ public static class LangManager
     
     public static string GetLangContent(EnumKey<LangModuleEnum.Tag> LangModule,string key)
     {
-        var ModuleDict = landic[LangModule];
-        if (ModuleDict == null)
+        Dictionary<string, string> moduleDict;
+        moduleDict = landic[LangModule];
+        if (moduleDict == null)
         {
-            Debug.LogError("Null ModuleDict");
+            Debug.LogError(string.Join(",","Null ModuleDict",LangModule.name,_langName));
         }
 
-        var Content = ModuleDict[key];
+        if (!moduleDict.ContainsKey(key))
+        {
+            Debug.LogError(string.Join(",", "Null Content in", LangModule.name, _langName,key));
+        }
+        var Content = moduleDict[key];
         if (Content == null)
         {
-            Debug.LogError("Null Cantent");
+            Debug.LogError(string.Join(",", "Null Content in", LangModule.name, _langName,key));
         }
         return Content;
     }
@@ -50,17 +56,18 @@ public static class LangManager
         return Content;
     }
 
-    public static async void SetLanguage(EnumKey<LangTypeEnum.Tag> aimType = null)
+    public static async Task SetLanguage(EnumKey<LangTypeEnum.Tag> aimType = null)
     {
         aimType ??= LangTypeEnum.English;
-        string langName = LangTypeEnum.Convert(aimType);
-
+        string langName = aimType.name;
+        _langName=langName;
         foreach (var item in ModuleList)
         {
-            string moduleName = LangModuleEnum.Convert(item);
+            string moduleName =item.name;
             string fileName = $"{langName}_{moduleName}_Lang.json";
             string pathName =GlobalPath.LangPath+ "/" + fileName;
 
+            
             if (!landic.ContainsKey(item))
                 landic[item] = new Dictionary<string, string>();
 

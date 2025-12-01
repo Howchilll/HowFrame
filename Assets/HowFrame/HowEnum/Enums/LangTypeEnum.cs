@@ -4,9 +4,9 @@ namespace HowEnum
     {
         public class Tag { }
 
-        public static readonly EnumKey<Tag> Chinese = new();
-        public static readonly EnumKey<Tag> English = new();
-        public static readonly EnumKey<Tag> Malayu = new();
+        public static readonly EnumKey<Tag> Chinese = new("Chinese");
+        public static readonly EnumKey<Tag> English = new("English");
+        public static readonly EnumKey<Tag> Malayu = new("Malayu");
 
         /// <summary>
         /// 将字符串转换为EnumKey

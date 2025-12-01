@@ -74,7 +74,7 @@ namespace HowFrame
                     await request.SendWebRequest();
                     if (request.result != UnityWebRequest.Result.Success)
                     {
-                        Debug.LogError($"Text load failed: {request.error}");
+                        Debug.LogWarning($"Text load failed: {request.error}");
                         return default;
                     }
                     string text = request.downloadHandler.text;

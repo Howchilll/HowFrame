@@ -64,14 +64,15 @@ public static class DebugAssistant
 
         if (obj == null)
         {
-            result = $"{prefix}<null>";
+            result = $"{prefix}<color={ToHtml(color)}><null></color>";
         }
         else
         {
             Type typeInfo = obj.GetType();
             if (typeInfo.IsPrimitive || obj is string || obj is decimal)
             {
-                result = $"{prefix}{obj}";
+                // 为基本类型和字符串应用颜色标签
+                result = $"{prefix}<color={ToHtml(color)}>{obj}</color>";
             }
             else
             {

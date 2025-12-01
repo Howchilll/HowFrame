@@ -105,6 +105,14 @@ namespace HowFrame
 
         public static EnumBindHelper<T> SetObj<T>(EnumKeyBase key, Ref<T> obj)
         {
+            if (key == null)
+            {
+                throw new ArgumentNullException(nameof(key), "EnumKeyBase cannot be null");
+            }
+            if (string.IsNullOrEmpty(key.name))
+            {
+                throw new ArgumentException("EnumKeyBase.name cannot be null or empty. Make sure the EnumKey was created with a name parameter.", nameof(key));
+            }
             SetObj<T>(key.name, obj);
             return new EnumBindHelper<T>(key.name);
         }

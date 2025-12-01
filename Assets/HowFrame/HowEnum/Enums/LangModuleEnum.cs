@@ -4,9 +4,9 @@ namespace HowEnum
     {
         public class Tag { }
 
-        public static readonly EnumKey<Tag> UI = new();
-        public static readonly EnumKey<Tag> ItemInfo = new();
-        public static readonly EnumKey<Tag> Default = new();
+        public static readonly EnumKey<Tag> UI = new("UI");
+        public static readonly EnumKey<Tag> ItemInfo = new("ItemInfo");
+        public static readonly EnumKey<Tag> Default = new("Default");
 
         /// <summary>
         /// 将字符串转换为EnumKey
