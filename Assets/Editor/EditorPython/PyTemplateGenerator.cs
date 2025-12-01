@@ -70,19 +70,29 @@ public class PyTemplateGenerator : EditorWindow
 
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
         
+        List<int> indicesToRemove = new List<int>();
         for (int i = 0; i < parameters.Count; i++)
         {
             EditorGUILayout.BeginHorizontal();
             parameters[i].Name = EditorGUILayout.TextField($"参数 {i + 1}", parameters[i].Name);
             if (GUILayout.Button("删除", GUILayout.Width(60)))
             {
-                parameters.RemoveAt(i);
-                break;
+                indicesToRemove.Add(i);
             }
             EditorGUILayout.EndHorizontal();
         }
         
         EditorGUILayout.EndScrollView();
+        
+        // 在 GUI 布局完成后删除元素（倒序删除避免索引问题）
+        if (indicesToRemove.Count > 0)
+        {
+            indicesToRemove.Sort();
+            for (int i = indicesToRemove.Count - 1; i >= 0; i--)
+            {
+                parameters.RemoveAt(indicesToRemove[i]);
+            }
+        }
 
         if (GUILayout.Button("添加参数"))
         {
