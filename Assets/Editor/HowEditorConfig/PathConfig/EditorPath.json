@@ -19,6 +19,10 @@
         {
             "Key": "PathCs",
             "Value": "\"Assets/HowFrame/HowPath/Paths\""
+        },
+        {
+            "Key": "PythonPath",
+            "Value": "\"Assets/SomePath\""
         }
     ]
 }
