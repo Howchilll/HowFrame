@@ -9,8 +9,13 @@ namespace HowFrame
 public abstract class PanelBase : MonoBehaviour
 { 
     protected abstract void Init();
-   protected internal virtual void WhenShow(){}
-        protected internal virtual void WhenHide(){}
+    protected internal virtual void WhenShow(){}
+    protected internal virtual void WhenHide(){}
+
+    protected internal virtual void WhenShowWithParameter(dynamic  obJson)
+    {
+        
+    }
     
     private void Start()
     {

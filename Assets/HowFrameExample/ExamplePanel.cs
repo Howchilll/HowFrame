@@ -2,6 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
+
 using HowFrame;
 public class ExamplePanel : PanelBase
 {
@@ -45,5 +46,12 @@ public class ExamplePanel : PanelBase
     protected  override void WhenHide()
     {
        "PanelHide".Log();
+       
+       
+    }
+
+    protected override void WhenShowWithParameter(dynamic obJson)
+    {
+        var a = (int)obJson.hp;
     }
 }

@@ -47,8 +47,6 @@ public static class PythonPrint
 
 public class PythonPrintParameterWindow : EditorWindow
 {
-    private string name = "";
-
     public static void ShowWindow()
     {
         PythonPrintParameterWindow window = GetWindow<PythonPrintParameterWindow>("PythonPrint 参数");

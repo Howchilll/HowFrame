@@ -57,6 +57,7 @@ namespace HowFrame
                 }
 
                 UIObjects[name].WhenShow();
+                
             }
         }
 
@@ -65,13 +66,22 @@ namespace HowFrame
             Show(false, UINames);
         }
 
+        public static void Show(string UIName, OBJson obJson)
+        {
+            Show(UIName);
+            UIObjects[UIName].WhenShowWithParameter(obJson);
+        }
 
-
+        public static void Show(EnumKeyBase UIName, OBJson obJson)
+        {
+            Show(UIName.name, obJson);
+        }
+        
+        
         public static void Show(bool father = false, params EnumKeyBase[] UINames)
         {
             Show(father, UINames.Select(k => k.name).ToArray());
         }
-
         public static void Show(params EnumKeyBase[] UINames)
         {
             Show(false, UINames.Select(k => k.name).ToArray());

@@ -1,0 +1,40 @@
+using HowFrame;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+using HowEnum;
+public partial class {PANEL_NAME}Panel : PanelBase
+{
+//Define 
+
+//end Define
+
+    protected override void Init()
+    {
+        //Init
+
+        //end Init
+        OnInit();
+    }
+
+    protected override void WhenShow()
+    {
+        //Show
+
+
+        //end Show
+        OnShow();
+    }
+
+    protected override void WhenHide()
+    {
+        //Hide
+
+
+        //end Hide
+        OnHide();
+    }
+
+
+}
+
