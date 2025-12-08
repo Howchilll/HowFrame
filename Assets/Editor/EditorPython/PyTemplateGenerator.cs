@@ -6,6 +6,7 @@ using System.IO;
 using System.Text;
 using System;
 using System.Linq;
+using LitJson;
 
 public class PyTemplateGenerator : EditorWindow
 {
@@ -146,6 +147,26 @@ public class PyTemplateGenerator : EditorWindow
         string pyContent = GeneratePyFile(parameters);
         File.WriteAllText(pyPath, pyContent, Encoding.UTF8);
 
+        // 如果有参数，生成参数配置文件
+        if (parameters != null && parameters.Count > 0)
+        {
+            var validParams = parameters.Where(p => !string.IsNullOrEmpty(p.Name))
+                .Select(p => new ParameterEntry { Name = NormalizeParameterName(p.Name) })
+                .ToList();
+            
+            if (validParams.Count > 0)
+            {
+                string jsonPath = Path.Combine(basePath, "parameters.json");
+                var paramDict = new Dictionary<string, string>();
+                foreach (var param in validParams)
+                {
+                    paramDict[param.Name] = "";
+                }
+                string jsonContent = JsonMapper.ToJson(paramDict);
+                File.WriteAllText(jsonPath, jsonContent, Encoding.UTF8);
+            }
+        }
+
         AssetDatabase.Refresh();
         EditorUtility.DisplayDialog("成功", $"模板已生成到:\n{normalizedName}/", "确定");
     }
@@ -159,8 +180,10 @@ public class PyTemplateGenerator : EditorWindow
 
         StringBuilder sb = new StringBuilder();
         sb.AppendLine("using System.IO;");
+        sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine("using UnityEditor;");
         sb.AppendLine("using UnityEngine;");
+        sb.AppendLine("using LitJson;");
         sb.AppendLine();
 
         if (hasParams && validParams.Count > 0)
@@ -225,6 +248,59 @@ public class PyTemplateGenerator : EditorWindow
             sb.AppendLine("        window.Show();");
             sb.AppendLine("    }");
             sb.AppendLine();
+            sb.AppendLine("    private void OnEnable()");
+            sb.AppendLine("    {");
+            sb.AppendLine($"        LoadParameters();");
+            sb.AppendLine("    }");
+            sb.AppendLine();
+            sb.AppendLine("    private void LoadParameters()");
+            sb.AppendLine("    {");
+            sb.AppendLine($"        string jsonPath = Path.Combine(Application.dataPath, \"Editor\", \"EditorPython\", \"{className}\", \"parameters.json\");");
+            sb.AppendLine("        jsonPath = Path.GetFullPath(jsonPath);");
+            sb.AppendLine();
+            sb.AppendLine("        if (File.Exists(jsonPath))");
+            sb.AppendLine("        {");
+            sb.AppendLine("            try");
+            sb.AppendLine("            {");
+            sb.AppendLine("                string jsonContent = File.ReadAllText(jsonPath);");
+            sb.AppendLine("                var paramDict = JsonMapper.ToObject<Dictionary<string, string>>(jsonContent);");
+            sb.AppendLine("                if (paramDict != null)");
+            sb.AppendLine("                {");
+            foreach (var param in validParams)
+            {
+                sb.AppendLine($"                    if (paramDict.ContainsKey(\"{param.Name}\"))");
+                sb.AppendLine($"                        {param.Name} = paramDict[\"{param.Name}\"];");
+            }
+            sb.AppendLine("                }");
+            sb.AppendLine("            }");
+            sb.AppendLine("            catch (System.Exception e)");
+            sb.AppendLine("            {");
+            sb.AppendLine("                Debug.LogWarning($\"读取参数配置文件失败: {e.Message}\");");
+            sb.AppendLine("            }");
+            sb.AppendLine("        }");
+            sb.AppendLine("    }");
+            sb.AppendLine();
+            sb.AppendLine("    private void SaveParameters()");
+            sb.AppendLine("    {");
+            sb.AppendLine($"        string jsonPath = Path.Combine(Application.dataPath, \"Editor\", \"EditorPython\", \"{className}\", \"parameters.json\");");
+            sb.AppendLine("        jsonPath = Path.GetFullPath(jsonPath);");
+            sb.AppendLine();
+            sb.AppendLine("        try");
+            sb.AppendLine("        {");
+            sb.AppendLine("            var paramDict = new Dictionary<string, string>();");
+            foreach (var param in validParams)
+            {
+                sb.AppendLine($"            paramDict[\"{param.Name}\"] = {param.Name};");
+            }
+            sb.AppendLine("            string jsonContent = JsonMapper.ToJson(paramDict);");
+            sb.AppendLine("            File.WriteAllText(jsonPath, jsonContent);");
+            sb.AppendLine("        }");
+            sb.AppendLine("        catch (System.Exception e)");
+            sb.AppendLine("        {");
+            sb.AppendLine("            Debug.LogError($\"保存参数配置文件失败: {e.Message}\");");
+            sb.AppendLine("        }");
+            sb.AppendLine("    }");
+            sb.AppendLine();
             sb.AppendLine("    private void OnGUI()");
             sb.AppendLine("    {");
             sb.AppendLine($"        GUILayout.Label(\"{className} 参数设置\", EditorStyles.boldLabel);");
@@ -236,6 +312,7 @@ public class PyTemplateGenerator : EditorWindow
             sb.AppendLine("        GUILayout.Space(20);");
             sb.AppendLine("        if (GUILayout.Button(\"执行\", GUILayout.Height(30)))");
             sb.AppendLine("        {");
+            sb.AppendLine("            SaveParameters();");
             sb.AppendLine($"            {className}.Execute({string.Join(", ", validParams.Select(p => p.Name))});");
             sb.AppendLine("            Close();");
             sb.AppendLine("        }");
@@ -311,6 +388,28 @@ public class PyTemplateGenerator : EditorWindow
         sb.AppendLine("# 在这里编写你的 Python 代码");
         sb.AppendLine();
         sb.AppendLine("print(\"Python 执行完毕！\")");
+        sb.AppendLine();
+        sb.AppendLine();
+        sb.AppendLine("def write_output(content):");
+        sb.AppendLine("    \"\"\"");
+        sb.AppendLine("    将内容输出到脚本文件夹的 output.txt 文件");
+        sb.AppendLine("    :param content: 要输出的内容（字符串）");
+        sb.AppendLine("    \"\"\"");
+        sb.AppendLine("    import os");
+        sb.AppendLine("    # 获取当前脚本所在的文件夹路径");
+        sb.AppendLine("    script_dir = os.path.dirname(os.path.abspath(__file__))");
+        sb.AppendLine("    output_path = os.path.join(script_dir, 'output.txt')");
+        sb.AppendLine("    ");
+        sb.AppendLine("    # 写入文件（追加模式）");
+        sb.AppendLine("    with open(output_path, 'a', encoding='utf-8') as f:");
+        sb.AppendLine("        f.write(str(content))");
+        sb.AppendLine("        f.write('\\n')");
+        sb.AppendLine("    ");
+        sb.AppendLine("    print(f\"内容已写入: {output_path}\")");
+        sb.AppendLine();
+        sb.AppendLine();
+        sb.AppendLine("# 使用示例：");
+        sb.AppendLine("# write_output(\"这是输出的内容\")");
 
         return sb.ToString();
     }
