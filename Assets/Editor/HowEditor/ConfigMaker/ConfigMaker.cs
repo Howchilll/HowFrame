@@ -36,7 +36,7 @@ public class ConfigMaker : EditorWindow
     // MessagePack toggle
     private bool useMessagePack = false;
 
-    [MenuItem("Tools/Config/Config Maker")]
+    //[MenuItem("Tools/Config/Config Maker")]
     public static void ShowWindow()
     {
         GetWindow<ConfigMaker>("Config Maker");

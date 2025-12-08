@@ -23,6 +23,22 @@
         {
             "Key": "PythonPath",
             "Value": "\"Assets/SomePath\""
+        },
+        {
+            "Key": "ConfigExcelPath",
+            "Value": "\"GameTable/Config\""
+        },
+        {
+            "Key": "ConfigJsonPath",
+            "Value": "\"Assets/StreamingAssets/Config\""
+        },
+        {
+            "Key": "LanguageExcelPath",
+            "Value": "\"GameTable/Languages\""
+        },
+        {
+            "Key": "LanguageJsonPath",
+            "Value": "\"Assets/StreamingAssets/Languages\""
         }
     ]
 }

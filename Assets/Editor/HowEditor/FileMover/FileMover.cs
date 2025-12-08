@@ -23,7 +23,7 @@ public class FileMover : EditorWindow
     private FileMoverConfig config = new FileMoverConfig();
     private Vector2 scrollPos;
 
-    [MenuItem("Tools/File Mover")]
+    // [MenuItem("Tools/File Mover")]  // 已隐藏
     public static void ShowWindow()
     {
         GetWindow<FileMover>("File Mover");

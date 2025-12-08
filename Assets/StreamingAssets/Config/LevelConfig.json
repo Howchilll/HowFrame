@@ -1,0 +1,26 @@
+[
+  {
+    "LevelId": 1,
+    "LevelName": "新手村",
+    "Difficulty": "Easy",
+    "EnemyCount": 5,
+    "RewardCoins": 100,
+    "UnlockCondition": "None"
+  },
+  {
+    "LevelId": 2,
+    "LevelName": "森林深处",
+    "Difficulty": "Normal",
+    "EnemyCount": 10,
+    "RewardCoins": 200,
+    "UnlockCondition": "Complete Level 1"
+  },
+  {
+    "LevelId": 3,
+    "LevelName": "黑暗洞穴",
+    "Difficulty": "Hard",
+    "EnemyCount": 15,
+    "RewardCoins": 300,
+    "UnlockCondition": "Complete Level 2"
+  }
+]

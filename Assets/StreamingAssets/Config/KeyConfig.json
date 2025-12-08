@@ -1,0 +1,34 @@
+[
+  {
+    "Key": "DebugTest",
+    "Value": "Alpha0"
+  },
+  {
+    "Key": "AudioTest",
+    "Value": "Alpha1"
+  },
+  {
+    "Key": "HP++",
+    "Value": "Alpha2"
+  },
+  {
+    "Key": "CameraEffectTest1",
+    "Value": "Alpha3"
+  },
+  {
+    "Key": "CameraEffectTest2",
+    "Value": "Alpha4"
+  },
+  {
+    "Key": "UIShow",
+    "Value": "Alpha5"
+  },
+  {
+    "Key": "UIHide",
+    "Value": "Alpha6"
+  },
+  {
+    "Key": "MusicTest",
+    "Value": "Alpha7"
+  }
+]

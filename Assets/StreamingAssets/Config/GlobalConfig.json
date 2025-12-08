@@ -1,0 +1,20 @@
+[
+  {
+    "AchievementName": "FirstWin",
+    "Completed": false,
+    "Reward": "100 Coins",
+    "Description": "赢得第一场游戏"
+  },
+  {
+    "AchievementName": "Collected100Coins",
+    "Completed": false,
+    "Reward": "200 Coins",
+    "Description": "收集100个金币"
+  },
+  {
+    "AchievementName": "Level10",
+    "Completed": true,
+    "Reward": "500 Coins",
+    "Description": "达到第10关"
+  }
+]

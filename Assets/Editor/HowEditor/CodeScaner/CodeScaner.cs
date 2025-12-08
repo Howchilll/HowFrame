@@ -12,7 +12,7 @@ public class CodeScanner : EditorWindow
     private string outputDir = "Assets"; // 输出上级目录
     private string outputFileName = "LanguageKeys"; // 文件名（不带后缀）
     
-    [MenuItem("Tools/Code Scanner")]
+    // [MenuItem("Tools/Code Scanner")]  // 已隐藏
     public static void ShowWindow()
     {
         GetWindow<CodeScanner>("Code Scanner");

@@ -6,41 +6,16 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Linq;
 using Unity.Plastic.Newtonsoft.Json;
+using HowEnum;
 
 /// <summary>
-/// 多语言系统编辑器工具
+/// 多语言系统编辑器工具（基于 Excel 管理）
+/// 动态从 LangTypeEnum 和 LangModuleEnum 读取配置
 /// </summary>
 public class LanguageConfiger : EditorWindow
 {
-    // === 内部枚举类型 ===
-    public enum Language
-    {
-        English,
-        French,
-        Malayu,
-        Chinese,
-    }
-
-    public enum Module
-    {
-        UI,
-        Default,
-        ItemInfo,
-        Scene,
-    }
-
-    private Language selectedLanguage = Language.English;
-    private Module selectedModule = Module.UI;
-    private string outputFolder = "Assets/LangOutput";
-    private Vector2 scrollPos;
-    private string searchFilter = "";
-    private bool showOnlyEmpty = false;
-
-    // 当前扫描的词条
-    private Dictionary<string, string> langEntries = new();
-
-    // 本地缓存的旧文件数据
-    private Dictionary<string, string> cachedEntries = new();
+    private string excelFolder = "EditorPath.LanguageExcelPath";
+    private string jsonOutputFolder = "EditorPath.LanguageJsonPath";
 
     private const string EditorPrefsKey = "LanguageConfiger_State";
 
@@ -48,105 +23,46 @@ public class LanguageConfiger : EditorWindow
     public static void OpenWindow()
     {
         var window = GetWindow<LanguageConfiger>("Language Helper");
-        window.LoadEditorPrefs(); // 打开时加载编辑器状态
+        window.LoadEditorPrefs();
     }
 
     private void OnDisable()
     {
-        SaveEditorPrefs(); // 关闭时保存编辑器状态
+        SaveEditorPrefs();
     }
 
     private void OnGUI()
     {
-        EditorGUILayout.LabelField("多语言系统工具", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("多语言系统工具（Excel 管理）", EditorStyles.boldLabel);
+        EditorGUILayout.Space(10);
+
+        EditorGUILayout.HelpBox("语言配置现在通过 Excel 文件管理。\n1. 点击「扫描并更新 Excel」扫描项目并更新 Excel 文件\n2. 在 Excel 中编辑语言内容\n3. 点击「转换所有语言配置文件生成 JSON」生成 JSON 文件", MessageType.Info);
+        EditorGUILayout.Space(10);
+
+        excelFolder = EditorGUILayout.TextField("Excel 文件夹路径", excelFolder);
+        jsonOutputFolder = EditorGUILayout.TextField("JSON 输出文件夹", jsonOutputFolder);
+
+        EditorGUILayout.Space(10);
+
+        if (GUILayout.Button("扫描并更新 Excel", GUILayout.Height(40)))
+        {
+            ScanAndUpdateAllExcels();
+        }
+
         EditorGUILayout.Space(5);
 
-        selectedLanguage = (Language)EditorGUILayout.EnumPopup("Language", selectedLanguage);
-        selectedModule = (Module)EditorGUILayout.EnumPopup("Lang Module", selectedModule);
-        outputFolder = EditorGUILayout.TextField("Output Folder", outputFolder);
-
-        EditorGUILayout.Space(10);
-        EditorGUILayout.BeginHorizontal();
-        if (GUILayout.Button("扫描项目", GUILayout.Height(30)))
+        if (GUILayout.Button("转换所有语言配置文件生成 JSON", GUILayout.Height(40)))
         {
-            ScanProject();
-            LoadCachedEntries();
-            MergeCachedEntries();
+            ConvertAllExcelsToJson();
         }
-
-        if (GUILayout.Button("输出文件", GUILayout.Height(30)))
-        {
-            ExportJson();
-        }
-        EditorGUILayout.EndHorizontal();
-
-        EditorGUILayout.Space(10);
-        
-        // 添加搜索和过滤功能
-        EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField("搜索:", GUILayout.Width(50));
-        searchFilter = EditorGUILayout.TextField(searchFilter);
-        showOnlyEmpty = EditorGUILayout.Toggle("仅显示空值", showOnlyEmpty, GUILayout.Width(100));
-        EditorGUILayout.EndHorizontal();
-        
-        // 获取过滤后的键列表
-        var filteredKeys = GetFilteredKeys();
-        EditorGUILayout.LabelField($"扫描结果 ({filteredKeys.Count}/{langEntries.Count} 条):", EditorStyles.boldLabel);
-        
-        // 使用更紧凑的布局和更好的滚动体验
-        scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(300));
-        
-        for (int i = 0; i < filteredKeys.Count; i++)
-        {
-            var key = filteredKeys[i];
-            var value = langEntries[key];
-            bool isEmpty = string.IsNullOrEmpty(value);
-            
-            // 根据是否为空值设置不同的背景色
-            Color originalColor = GUI.backgroundColor;
-            if (isEmpty)
-            {
-                GUI.backgroundColor = new Color(1f, 0.8f, 0.8f, 0.3f); // 浅红色背景
-            }
-            
-            // 使用更紧凑的布局
-            EditorGUILayout.BeginHorizontal();
-            
-            // 键名标签 - 固定宽度，显示空值状态
-            string keyLabel = isEmpty ? $"{key} (空)" : key;
-            EditorGUILayout.LabelField(keyLabel, GUILayout.Width(200), GUILayout.ExpandWidth(false));
-            
-            // 值输入框 - 占用剩余空间
-            langEntries[key] = EditorGUILayout.TextField(value, GUILayout.ExpandWidth(true));
-            
-            // 删除按钮 - 紧凑布局
-            if (GUILayout.Button("×", GUILayout.Width(20), GUILayout.Height(18)))
-            {
-                langEntries.Remove(key);
-                break; // 退出循环，避免修改集合时的问题
-            }
-            
-            EditorGUILayout.EndHorizontal();
-            
-            // 恢复原始背景色
-            GUI.backgroundColor = originalColor;
-            
-            // 添加分隔线（可选）
-            if (i < filteredKeys.Count - 1)
-            {
-                EditorGUILayout.Space(1);
-            }
-        }
-
-        EditorGUILayout.EndScrollView();
     }
 
     /// <summary>
-    /// 扫描项目中所有 GetLangContent 调用
+    /// 扫描项目中所有 GetLangContent 调用（针对指定模块）
     /// </summary>
-    private void ScanProject()
+    private Dictionary<string, string> ScanProjectForModule(string moduleName)
     {
-        langEntries.Clear();
+        var langEntries = new Dictionary<string, string>();
         string[] csFiles = Directory.GetFiles(Application.dataPath, "*.cs", SearchOption.AllDirectories);
 
         // 扫描固定字符串的GetLangContent调用
@@ -168,13 +84,13 @@ public class LanguageConfiger : EditorWindow
             MatchCollection matches = regex.Matches(content);
             foreach (Match match in matches)
             {
-                string module = match.Groups[1].Success && !string.IsNullOrEmpty(match.Groups[1].Value)
+                string scannedModuleName = match.Groups[1].Success && !string.IsNullOrEmpty(match.Groups[1].Value)
                     ? match.Groups[1].Value
                     : "Default"; // 没写模块参数的，默认 Default
 
                 string key = match.Groups[2].Value;
 
-                if (module.Equals(selectedModule.ToString(), System.StringComparison.OrdinalIgnoreCase))
+                if (scannedModuleName.Equals(moduleName, System.StringComparison.OrdinalIgnoreCase))
                 {
                     if (!langEntries.ContainsKey(key))
                         langEntries[key] = "";
@@ -185,10 +101,10 @@ public class LanguageConfiger : EditorWindow
             MatchCollection commentMatches = commentRegex.Matches(content);
             foreach (Match commentMatch in commentMatches)
             {
-                string module = commentMatch.Groups[1].Value;
+                string scannedModuleName = commentMatch.Groups[1].Value;
                 string keysString = commentMatch.Groups[2].Value;
                 
-                if (module.Equals(selectedModule.ToString(), System.StringComparison.OrdinalIgnoreCase))
+                if (scannedModuleName.Equals(moduleName, System.StringComparison.OrdinalIgnoreCase))
                 {
                     // 解析键列表，支持 "str1","str2" 格式
                     string[] keys = keysString.Split(',');
@@ -204,79 +120,143 @@ public class LanguageConfiger : EditorWindow
             }
         }
 
-        Debug.Log($"扫描完成，共找到 {langEntries.Count} 个键。");
+        return langEntries;
     }
 
     /// <summary>
-    /// 从本地 JSON 读取缓存内容
+    /// 扫描并更新所有 Excel 文件
     /// </summary>
-    private void LoadCachedEntries()
+    private void ScanAndUpdateAllExcels()
     {
-        cachedEntries.Clear();
-
-        string fileName = $"{selectedLanguage}_{selectedModule}_Lang.json";
-        string op = ResolvePath(outputFolder);
-        
-        string fullPath = Path.Combine(op, fileName);
-
-        if (File.Exists(fullPath))
+        string excelPath = ResolvePath(excelFolder);
+        if (!Directory.Exists(excelPath))
         {
-            try
-            {
-                string json = File.ReadAllText(fullPath);
-                cachedEntries = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-
-                if (cachedEntries == null)
-                    cachedEntries = new();
-
-                Debug.Log($"已读取本地缓存：{fileName}（{cachedEntries.Count} 条）");
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogWarning($"读取本地语言文件失败：{ex.Message}");
-            }
+            Directory.CreateDirectory(excelPath);
         }
-    }
 
-    /// <summary>
-    /// 将缓存值合并进当前扫描结果
-    /// </summary>
-    private void MergeCachedEntries()
-    {
-        foreach (var kvp in cachedEntries)
-        {
-            if (langEntries.ContainsKey(kvp.Key) && string.IsNullOrEmpty(langEntries[kvp.Key]))
-            {
-                langEntries[kvp.Key] = kvp.Value;
-            }
-        }
-    }
+        // 动态获取所有语言和模块
+        var allLanguages = LangTypeEnum.GetAll();
+        var allModules = LangModuleEnum.GetAll();
 
-    /// <summary>
-    /// 导出 JSON 文件
-    /// </summary>
-    private void ExportJson()
-    {
-        if (langEntries.Count == 0)
+        if (allLanguages == null || allLanguages.Count == 0)
         {
-            Debug.LogWarning("没有可导出的语言数据。请先扫描。");
+            Debug.LogError("❌ 无法获取语言列表，请检查 LangTypeEnum 配置");
             return;
         }
 
-        string op = ResolvePath(outputFolder);
-       
-        if (!Directory.Exists(op))
+        if (allModules == null || allModules.Count == 0)
         {
-            Directory.CreateDirectory(op);
+            Debug.LogError("❌ 无法获取模块列表，请检查 LangModuleEnum 配置");
+            return;
         }
 
-        string fileName = $"{selectedLanguage}_{selectedModule}_Lang.json";
-        string fullPath = Path.Combine(op, fileName);
+        int totalUpdated = 0;
 
-        string json = JsonConvert.SerializeObject(langEntries, Formatting.Indented);
-        File.WriteAllText(fullPath, json);
+        // 遍历所有语言和模块组合
+        foreach (var langKey in allLanguages)
+        {
+            string langName = langKey.name;
+            
+            foreach (var moduleKey in allModules)
+            {
+                string moduleName = moduleKey.name;
+                
+                // 扫描项目获取该模块的所有键
+                var scannedKeys = ScanProjectForModule(moduleName);
+                
+                if (scannedKeys.Count == 0)
+                    continue;
 
-        Debug.Log($"导出成功：{fullPath}");
+                // 构建 Excel 文件路径
+                string excelFileName = $"{langName}_{moduleName}_Lang.xlsx";
+                string excelFilePath = Path.Combine(excelPath, excelFileName);
+
+                // 更新 Excel（只新建新项，删除没有了的项，不改变现有项的赋值）
+                LanguageExcelSerializer.UpdateExcel(excelFilePath, scannedKeys);
+                totalUpdated++;
+            }
+        }
+
+        Debug.Log($"✅ 扫描并更新完成！共更新 {totalUpdated} 个 Excel 文件");
+        AssetDatabase.Refresh();
+    }
+
+    /// <summary>
+    /// 转换所有语言 Excel 文件生成 JSON
+    /// </summary>
+    private void ConvertAllExcelsToJson()
+    {
+        string excelPath = ResolvePath(excelFolder);
+        string jsonPath = ResolvePath(jsonOutputFolder);
+
+        if (!Directory.Exists(excelPath))
+        {
+            Debug.LogError($"Excel 文件夹不存在: {excelPath}");
+            return;
+        }
+
+        if (!Directory.Exists(jsonPath))
+        {
+            Directory.CreateDirectory(jsonPath);
+        }
+
+        // 动态获取所有语言和模块
+        var allLanguages = LangTypeEnum.GetAll();
+        var allModules = LangModuleEnum.GetAll();
+
+        if (allLanguages == null || allLanguages.Count == 0)
+        {
+            Debug.LogError("❌ 无法获取语言列表，请检查 LangTypeEnum 配置");
+            return;
+        }
+
+        if (allModules == null || allModules.Count == 0)
+        {
+            Debug.LogError("❌ 无法获取模块列表，请检查 LangModuleEnum 配置");
+            return;
+        }
+
+        int totalConverted = 0;
+
+        // 遍历所有语言和模块组合
+        foreach (var langKey in allLanguages)
+        {
+            string langName = langKey.name;
+            
+            foreach (var moduleKey in allModules)
+            {
+                string moduleName = moduleKey.name;
+                
+                // 构建 Excel 文件路径
+                string excelFileName = $"{langName}_{moduleName}_Lang.xlsx";
+                string excelFilePath = Path.Combine(excelPath, excelFileName);
+
+                if (!File.Exists(excelFilePath))
+                {
+                    continue;
+                }
+
+                // 从 Excel 读取数据
+                var langData = LanguageExcelSerializer.ExcelToJsonDict(excelFilePath);
+
+                if (langData.Count == 0)
+                {
+                    continue;
+                }
+
+                // 生成 JSON 文件
+                string jsonFileName = $"{langName}_{moduleName}_Lang.json";
+                string jsonFilePath = Path.Combine(jsonPath, jsonFileName);
+
+                string json = JsonConvert.SerializeObject(langData, Formatting.Indented);
+                File.WriteAllText(jsonFilePath, json);
+                totalConverted++;
+
+                Debug.Log($"✅ 转换完成: {jsonFileName} ({langData.Count} 条)");
+            }
+        }
+
+        Debug.Log($"✅ 所有语言配置文件转换完成！共转换 {totalConverted} 个 JSON 文件");
         AssetDatabase.Refresh();
     }
 
@@ -287,9 +267,8 @@ public class LanguageConfiger : EditorWindow
     {
         var state = new
         {
-            selectedLanguage = selectedLanguage.ToString(),
-            selectedModule = selectedModule.ToString(),
-            outputFolder = outputFolder
+            excelFolder = excelFolder,
+            jsonOutputFolder = jsonOutputFolder
         };
         string json = JsonConvert.SerializeObject(state);
         EditorPrefs.SetString(EditorPrefsKey, json);
@@ -306,14 +285,11 @@ public class LanguageConfiger : EditorWindow
             var json = EditorPrefs.GetString(EditorPrefsKey);
             var state = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
 
-            if (state.TryGetValue("selectedLanguage", out string lang))
-                selectedLanguage = (Language)System.Enum.Parse(typeof(Language), lang);
+            if (state.TryGetValue("excelFolder", out string excelPath))
+                excelFolder = excelPath;
 
-            if (state.TryGetValue("selectedModule", out string mod))
-                selectedModule = (Module)System.Enum.Parse(typeof(Module), mod);
-
-            if (state.TryGetValue("outputFolder", out string path))
-                outputFolder = path;
+            if (state.TryGetValue("jsonOutputFolder", out string jsonPath))
+                jsonOutputFolder = jsonPath;
         }
         catch { }
     }
@@ -325,29 +301,6 @@ public class LanguageConfiger : EditorWindow
             return PathEditor.FindPath(pathSetting);
         }
         return pathSetting;
-    }
-    
-    /// <summary>
-    /// 获取过滤后的键列表
-    /// </summary>
-    private List<string> GetFilteredKeys()
-    {
-        var keys = new List<string>(langEntries.Keys);
-        
-        // 应用搜索过滤
-        if (!string.IsNullOrEmpty(searchFilter))
-        {
-            keys = keys.Where(k => k.ToLower().Contains(searchFilter.ToLower()) || 
-                                  langEntries[k].ToLower().Contains(searchFilter.ToLower())).ToList();
-        }
-        
-        // 应用空值过滤
-        if (showOnlyEmpty)
-        {
-            keys = keys.Where(k => string.IsNullOrEmpty(langEntries[k])).ToList();
-        }
-        
-        return keys;
     }
 }
 #endif

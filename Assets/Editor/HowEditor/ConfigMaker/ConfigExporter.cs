@@ -23,7 +23,7 @@ public class SOExporterWindow : EditorWindow
     private const string PrefOutputName = "SOExporter_OutputFileName";
     private const string PrefOutputPath = "SOExporter_OutputPath";
 
-    [MenuItem("Tools/Config/Config Exporter")]
+   // [MenuItem("Tools/Config/Config Exporter")]
     public static void ShowWindow()
     {
         GetWindow<SOExporterWindow>("SO Exporter");

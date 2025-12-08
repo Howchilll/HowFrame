@@ -1,0 +1,46 @@
+[
+  {
+    "ItemId": 1,
+    "ItemName": "生命药水",
+    "ItemType": "Consumable",
+    "Price": 50,
+    "Effect": "恢复50点生命值",
+    "Tags": [
+      "heal",
+      "consumable"
+    ]
+  },
+  {
+    "ItemId": 2,
+    "ItemName": "魔法药水",
+    "ItemType": "Consumable",
+    "Price": 30,
+    "Effect": "恢复30点魔法值",
+    "Tags": [
+      "mana",
+      "consumable"
+    ]
+  },
+  {
+    "ItemId": 3,
+    "ItemName": "铁剑",
+    "ItemType": "Weapon",
+    "Price": 200,
+    "Effect": "增加10点攻击力",
+    "Tags": [
+      "weapon",
+      "equipment"
+    ]
+  },
+  {
+    "ItemId": 4,
+    "ItemName": "皮甲",
+    "ItemType": "Armor",
+    "Price": 150,
+    "Effect": "增加5点防御力",
+    "Tags": [
+      "armor",
+      "equipment"
+    ]
+  }
+]
