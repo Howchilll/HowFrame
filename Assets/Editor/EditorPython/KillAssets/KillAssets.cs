@@ -4,17 +4,17 @@ using UnityEditor;
 using UnityEngine;
 using LitJson;
 
-public static class ScanScripts
+public static class KillAssets
 {
-    [MenuItem("Tools/PyFunctions/ScanScripts")]
+    [MenuItem("Tools/PyFunctions/KillAssets")]
     public static void Run()
     {
-        ScanScriptsParameterWindow.ShowWindow();
+        KillAssetsParameterWindow.ShowWindow();
     }
 
-    public static void Execute(string path)
+    public static void Execute(string aimFolder, string killList, string kignore)
     {
-        string scriptPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "ScanScripts", "scan_scripts.py");
+        string scriptPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "KillAssets", "kill_assets.py");
         scriptPath = Path.GetFullPath(scriptPath);
 
         try
@@ -23,7 +23,9 @@ public static class ScanScripts
 
             string[] args = new string[]
             {
-                path,
+                aimFolder,
+                killList,
+                kignore,
             };
 
             pyCaller.RunPythonScript(scriptPath, args, OnPyDone);
@@ -44,18 +46,18 @@ public static class ScanScripts
         {
             Debug.LogWarning($"Python 脚本执行完成，但退出码不为 0: {exitCode}");
         }
-        AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
-
     }
 }
 
-public class ScanScriptsParameterWindow : EditorWindow
+public class KillAssetsParameterWindow : EditorWindow
 {
-    private string path = "";
+    private string aimFolder = "";
+    private string killList = "";
+    private string kignore = "";
 
     public static void ShowWindow()
     {
-        ScanScriptsParameterWindow window = GetWindow<ScanScriptsParameterWindow>("ScanScripts 参数");
+        KillAssetsParameterWindow window = GetWindow<KillAssetsParameterWindow>("KillAssets 参数");
         window.Show();
     }
 
@@ -66,7 +68,7 @@ public class ScanScriptsParameterWindow : EditorWindow
 
     private void LoadParameters()
     {
-        string jsonPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "ScanScripts", "parameters.json");
+        string jsonPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "KillAssets", "parameters.json");
         jsonPath = Path.GetFullPath(jsonPath);
 
         if (File.Exists(jsonPath))
@@ -77,8 +79,12 @@ public class ScanScriptsParameterWindow : EditorWindow
                 var paramDict = JsonMapper.ToObject<Dictionary<string, string>>(jsonContent);
                 if (paramDict != null)
                 {
-                    if (paramDict.ContainsKey("path"))
-                        path = paramDict["path"];
+                    if (paramDict.ContainsKey("aimFolder"))
+                        aimFolder = paramDict["aimFolder"];
+                    if (paramDict.ContainsKey("killList"))
+                        killList = paramDict["killList"];
+                    if (paramDict.ContainsKey("kignore"))
+                        kignore = paramDict["kignore"];
                 }
             }
             catch (System.Exception e)
@@ -90,13 +96,15 @@ public class ScanScriptsParameterWindow : EditorWindow
 
     private void SaveParameters()
     {
-        string jsonPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "ScanScripts", "parameters.json");
+        string jsonPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "KillAssets", "parameters.json");
         jsonPath = Path.GetFullPath(jsonPath);
 
         try
         {
             var paramDict = new Dictionary<string, string>();
-            paramDict["path"] = path;
+            paramDict["aimFolder"] = aimFolder;
+            paramDict["killList"] = killList;
+            paramDict["kignore"] = kignore;
             string jsonContent = JsonMapper.ToJson(paramDict);
             File.WriteAllText(jsonPath, jsonContent);
         }
@@ -108,14 +116,16 @@ public class ScanScriptsParameterWindow : EditorWindow
 
     private void OnGUI()
     {
-        GUILayout.Label("ScanScripts 参数设置", EditorStyles.boldLabel);
+        GUILayout.Label("KillAssets 参数设置", EditorStyles.boldLabel);
         GUILayout.Space(10);
-        path = EditorGUILayout.TextField("path", path);
+        aimFolder = EditorGUILayout.TextField("aimFolder", aimFolder);
+        killList = EditorGUILayout.TextField("killList", killList);
+        kignore = EditorGUILayout.TextField("kignore", kignore);
         GUILayout.Space(20);
         if (GUILayout.Button("执行", GUILayout.Height(30)))
         {
             SaveParameters();
-            ScanScripts.Execute(path);
+            KillAssets.Execute(aimFolder, killList, kignore);
             Close();
         }
     }

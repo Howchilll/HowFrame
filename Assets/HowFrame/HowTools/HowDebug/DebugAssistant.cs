@@ -21,7 +21,7 @@ public enum DebugColor
 public static class DebugAssistant
 {
     private static readonly Dictionary<string, bool> TagFilter = new Dictionary<string, bool>();
-
+    
     public static void SetTag(string tag, bool enabled)
     {
         if (string.IsNullOrEmpty(tag)) return;

@@ -352,6 +352,7 @@ public class PyTemplateGenerator : EditorWindow
             sb.AppendLine("        {");
             sb.AppendLine("            Debug.LogWarning($\"Python 脚本执行完成，但退出码不为 0: {exitCode}\");");
             sb.AppendLine("        }");
+            sb.AppendLine("        AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);\n");
             sb.AppendLine("    }");
             sb.AppendLine("}");
         }
