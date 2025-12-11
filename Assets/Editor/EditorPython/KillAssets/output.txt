@@ -1,0 +1,6 @@
+目标目录: D:\UNITY\UNITY PROJECT\HowFrame\Assets\Art
+待删除数量: 3
+忽略规则数量: 4
+[删除] descent-whoosh-long-cinematic-sound-effect-405921.mp3
+[删除] art/ma.mat
+[删除] art/pp.physicMaterial

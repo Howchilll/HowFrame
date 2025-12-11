@@ -145,6 +145,13 @@ def collect_art_guids(folder):
 # ----------------------------------------------------------------------
 
 def main():
+    # 清空输出文件（每次运行都重新开始）
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    output_path = os.path.join(script_dir, 'output.txt')
+    if os.path.exists(output_path):
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write('')  # 清空文件
+        print(f"已清空输出文件: {output_path}")
 
     graph = defaultdict(set)
 
@@ -189,7 +196,6 @@ def main():
     # 5. 输出未被引用的 Art 资源路径（相对路径）
     # ---------------------------
     print("输出未引用资源...")
-    script_dir = os.path.dirname(os.path.abspath(__file__))
     for full_path in unused:
         rel = os.path.relpath(full_path, art_asset_path)
         write_output(rel)

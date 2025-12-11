@@ -36,16 +36,19 @@ public static class ScanScripts
 
     private static void OnPyDone(int exitCode)
     {
-        if (exitCode == 0)
+        // 将回调调度到主线程，因为 AssetDatabase.Refresh 只能在主线程调用
+        EditorApplication.delayCall += () =>
         {
-            Debug.Log("Python 脚本执行成功！");
-        }
-        else
-        {
-            Debug.LogWarning($"Python 脚本执行完成，但退出码不为 0: {exitCode}");
-        }
-        AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
-
+            if (exitCode == 0)
+            {
+                Debug.Log("Python 脚本执行成功！");
+            }
+            else
+            {
+                Debug.LogWarning($"Python 脚本执行完成，但退出码不为 0: {exitCode}");
+            }
+            AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+        };
     }
 }
 
