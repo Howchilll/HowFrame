@@ -153,7 +153,7 @@
                     "path": "<Gamepad>/leftStick/right",
                     "interactions": "",
                     "processors": "",
-                    "groups": ";GamePad;PC",
+                    "groups": ";GamePad",
                     "action": "MoveAround",
                     "isComposite": false,
                     "isPartOfComposite": true

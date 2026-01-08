@@ -49,7 +49,8 @@ public static class DataAssistant
             {
                 byte[] binary = File.ReadAllBytes(fullPath);
                 Encryption.XOR(binary);
-                return MessagePackSerializer.Deserialize<T>(binary);
+                var options = MessagePackSerializerOptions.Standard.WithResolver(MessagePack.Resolvers.ContractlessStandardResolver.Instance);
+                return MessagePackSerializer.Deserialize<T>(binary, options);
             }
         }
         return default(T);
@@ -66,6 +67,20 @@ public static class DataAssistant
         return default(T);
     }
     
+    public static bool HasData(string fileName, bool isJson = false, string upperPath = "")
+    {
+        string directoryPath = string.IsNullOrEmpty(upperPath)
+            ? Application.persistentDataPath
+            : Path.Combine(Application.persistentDataPath, upperPath);
+
+        string fullPath = Path.Combine(
+            directoryPath,
+            fileName + (isJson ? ".json" : ".dat")
+        );
+        Debug.Log(fullPath);
+        return File.Exists(fullPath);
+    }
+
     internal static void Wake(){}
 }
 }

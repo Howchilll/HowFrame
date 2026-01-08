@@ -1,0 +1,12 @@
+{
+  "entryPaths": [
+    "Assets/Scenes",
+    "Assets/Resources",
+    "Assets/GameRes"
+  ],
+  "targetAssetPath": "Assets/Art",
+  "ignoreRules": [
+
+  ]
+}
+

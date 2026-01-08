@@ -46,8 +46,8 @@ namespace HowFrame
             _mixer = AssetAssistant.AddressableGet<AudioMixer>("AudioMixer");
             if (_mixer != null)
             {
-                _musicGroup = _mixer.FindMatchingGroups("Master").FirstOrDefault();
-                _soundGroup = _mixer.FindMatchingGroups("Master").FirstOrDefault();
+                _musicGroup = _mixer.FindMatchingGroups("Music").FirstOrDefault();
+                _soundGroup = _mixer.FindMatchingGroups("Sound").FirstOrDefault();
             }
         }
 
@@ -92,7 +92,14 @@ namespace HowFrame
 
         public static void ChangeMusicVolume(float vol)
         {
+            if (_mixer == null) return;
             _mixer.SetFloat("MusicVol", Mathf.Log10(Mathf.Clamp01(vol)) * 20);
+        }
+
+        public static void ChangeSoundVolume(float vol)
+        {
+            if (_mixer == null) return;
+            _mixer.SetFloat("SoundVol", Mathf.Log10(Mathf.Clamp01(vol)) * 20);
         }
 
         private static IEnumerator PlayMusicCoroutine(float delay, AudioSource source)

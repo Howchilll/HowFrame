@@ -42,6 +42,7 @@ namespace HowFrame
 
                     var uiObj = Object.Instantiate(uiPrefab, fatherTransform);
                     var panel = uiObj.GetComponent<PanelBase>();
+                    
                     if (panel == null)
                     {
                         Debug.LogError($"UI 预设体 {name} 上没有 PanelBase 组件");
@@ -57,7 +58,6 @@ namespace HowFrame
                 }
 
                 UIObjects[name].WhenShow();
-                
             }
         }
 
@@ -66,22 +66,13 @@ namespace HowFrame
             Show(false, UINames);
         }
 
-        public static void Show(string UIName, OBJson obJson)
-        {
-            Show(UIName);
-            UIObjects[UIName].WhenShowWithParameter(obJson);
-        }
 
-        public static void Show(EnumKeyBase UIName, OBJson obJson)
-        {
-            Show(UIName.name, obJson);
-        }
-        
-        
+
         public static void Show(bool father = false, params EnumKeyBase[] UINames)
         {
             Show(father, UINames.Select(k => k.name).ToArray());
         }
+
         public static void Show(params EnumKeyBase[] UINames)
         {
             Show(false, UINames.Select(k => k.name).ToArray());

@@ -1,6 +1,7 @@
 using HowFrame;
 using UnityEngine;
 using UnityEngine.UI;
+using HowEnum;
 public partial class {PANEL_NAME}Panel : PanelBase
 {
    private void OnInit()
@@ -17,6 +18,10 @@ public partial class {PANEL_NAME}Panel : PanelBase
    {
       
    }
-
+    protected override void WhenShowWithParameter(dynamic  obJson)
+    {
+        
+    }
+    
 }
 

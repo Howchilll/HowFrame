@@ -21,8 +21,8 @@ MonoBehaviour:
     m_SerializedLabels:
     - Audio
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 295f920080d5706409ba6d47cfe6d8ca
-    m_Address: GameObject
+  - m_GUID: 8940caf2776258a40ab0d608ce0b9eaf
+    m_Address: "\u9006\u6E38"
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
