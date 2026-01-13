@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using static HowFrame.AssetAssistant;
+using Object = UnityEngine.Object;
 
 namespace HowFrame
 {
@@ -18,7 +19,7 @@ namespace HowFrame
         {
         }
 
-        protected internal virtual void WhenShowWithParameter(dynamic obJson)
+        protected internal virtual void WhenShowWithParameter(object obJson)
         {
         }
 

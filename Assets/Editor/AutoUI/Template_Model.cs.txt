@@ -18,7 +18,7 @@ public partial class {PANEL_NAME}Panel : PanelBase
    {
       
    }
-    protected override void WhenShowWithParameter(dynamic  obJson)
+    protected override void WhenShowWithParameter(object  parameter)
     {
         
     }

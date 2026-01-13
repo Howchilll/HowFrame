@@ -66,8 +66,16 @@ namespace HowFrame
             Show(false, UINames);
         }
 
-
-
+        public static void Show(string UIName, object parameter)
+        {
+            Show(UIName);
+            UIObjects[UIName].WhenShowWithParameter(parameter);
+        }
+        public static void Show(EnumKeyBase UIName, object parameter)
+        {
+            Show(UIName);
+            UIObjects[UIName.name].WhenShowWithParameter(parameter);
+        }
         public static void Show(bool father = false, params EnumKeyBase[] UINames)
         {
             Show(father, UINames.Select(k => k.name).ToArray());
