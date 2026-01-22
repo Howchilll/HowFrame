@@ -1,4 +1,0 @@
-﻿*.mat
-art/ui/
-effect/
-test.fbx
