@@ -9,7 +9,7 @@ namespace HowFrame
 {
     public abstract class PanelBase : MonoBehaviour
     {
-        protected abstract void Init();
+        protected internal abstract void Init();
 
         protected internal virtual void WhenShow()
         {
@@ -19,13 +19,10 @@ namespace HowFrame
         {
         }
 
-        protected internal virtual void WhenShowWithParameter(object obJson)
+        protected internal virtual void WhenShowWithParameter(object parameter)
         {
         }
 
-        private void Awake()
-        {
-            Init();
-        }
+
     }
 }

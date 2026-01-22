@@ -1,6 +1,7 @@
 using HowFrame;
 using UnityEngine;
 using UnityEngine.UI;
+[RuntimeGet]
 public partial class {PANEL_NAME}Panel : PanelBase
 {
 }

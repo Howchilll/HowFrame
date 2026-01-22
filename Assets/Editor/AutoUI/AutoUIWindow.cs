@@ -527,8 +527,8 @@ public class AutoUIWindow : EditorWindow
         string defineCode = "";
         foreach (var comp in components)
         {
-            defineCode += $"    private {comp.componentType} {comp.variableName};\n";
-            Debug.Log($"添加Define: {comp.componentType} {comp.variableName}");
+            defineCode += $"    [SerializeField]\n    private {comp.componentType} {comp.variableName};\n";
+            Debug.Log($"添加Define: [SerializeField] {comp.componentType} {comp.variableName}");
         }
         Debug.Log($"Define代码:\n{defineCode}");
         
@@ -537,8 +537,16 @@ public class AutoUIWindow : EditorWindow
         foreach (var comp in components)
         {
             // 使用transform.Find()来查找子对象，使用相对路径
-            initCode += $"        {comp.variableName} = transform.Find(\"{comp.relativePath}\").GetComponent<{comp.componentType}>();\n";
-            Debug.Log($"添加Init: {comp.variableName} = transform.Find(\"{comp.relativePath}\").GetComponent<{comp.componentType}>()");
+            if (comp.componentType == "GameObject")
+            {
+                initCode += $"        {comp.variableName} = transform.Find(\"{comp.relativePath}\").gameObject;\n";
+                Debug.Log($"添加Init: {comp.variableName} = transform.Find(\"{comp.relativePath}\").gameObject");
+            }
+            else
+            {
+                initCode += $"        {comp.variableName} = transform.Find(\"{comp.relativePath}\").GetComponent<{comp.componentType}>();\n";
+                Debug.Log($"添加Init: {comp.variableName} = transform.Find(\"{comp.relativePath}\").GetComponent<{comp.componentType}>()");
+            }
             
             // 如果需要回调，添加回调注册（调用Model中的方法）
             if (comp.hasCallback)

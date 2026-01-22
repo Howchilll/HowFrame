@@ -1,59 +1,89 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 namespace HowFrame
 {
 
-public interface IRuntimeGet
-{
-}
 
 
 public static class TypeAssistant
-{
-    private static Dictionary<string, Type> TypeDic;
-    private static bool _initialized = false;
-
-    public static void Wake()
     {
-        if (_initialized) return; // 防止重复初始化
+        private static readonly Dictionary<string, Type> TypeDic = new();
+        private static bool _initialized;
 
-        TypeDic = new Dictionary<string, Type>();
-        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        public static void Wake()
         {
-            Type[] types;
-            types = assembly.GetTypes();
+            if (_initialized) return;
 
-            foreach (var type in types)
+            TypeDic.Clear();
+
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                if (type.IsAbstract) continue;
-
-                if (typeof(IRuntimeGet).IsAssignableFrom(type))
+                Type[] types;
+                try
                 {
-                    TypeDic[type.Name] = type;
+                    types = assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException e)
+                {
+                    types = e.Types;
+                }
+
+                foreach (var type in types)
+                {
+                    if (type == null) continue;
+                    if (!type.IsClass || type.IsAbstract) continue;
+
+                    var attr = type.GetCustomAttributes(typeof(RuntimeGetAttribute), false);
+                    if (attr.Length == 0) continue;
+
+                    var runtimeAttr = (RuntimeGetAttribute)attr[0];
+                    var key = string.IsNullOrEmpty(runtimeAttr.Key)
+                        ? type.Name
+                        : runtimeAttr.Key;
+
+                    if (TypeDic.ContainsKey(key))
+                    {
+                        Debug.LogWarning($"TypeAssistant: 重复 Key = {key}，类型 = {type.FullName}");
+                        continue;
+                    }
+
+                    TypeDic.Add(key, type);
                 }
             }
-        }
-        _initialized = true;
-    }
-    
-    public static object GetInstance(string typeName)
-    {
-        if (TypeDic == null)
-        {
-            Debug.LogError("TypeAssistant: 未初始化，请先调用 Wake()");
-            return null;
+
+            _initialized = true;
         }
 
-        if (TypeDic.TryGetValue(typeName, out var type))
+        public static object GetInstance(string key)
         {
-            return Activator.CreateInstance(type);
+            if (!_initialized)
+            {
+                Debug.LogError("TypeAssistant: 未初始化，请先调用 Wake()");
+                return null;
+            }
+
+            if (!TypeDic.TryGetValue(key, out var type))
+            {
+                Debug.LogError($"TypeAssistant: 未找到类型 Key = {key}");
+                return null;
+            }
+
+            try
+            {
+                return Activator.CreateInstance(type);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"TypeAssistant: 创建实例失败 {type.FullName}\n{e}");
+                return null;
+            }
         }
-        else
+
+        public static T GetInstance<T>(string key) where T : class
         {
-            "Not found".Log();
-            return null;
+            return GetInstance(key) as T;
         }
     }
-}
 }

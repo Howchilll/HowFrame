@@ -42,13 +42,22 @@ namespace HowFrame
 
                     var uiObj = Object.Instantiate(uiPrefab, fatherTransform);
                     var panel = uiObj.GetComponent<PanelBase>();
-                    
                     if (panel == null)
                     {
-                        Debug.LogError($"UI 预设体 {name} 上没有 PanelBase 组件");
+                        // 通过TypeAssistant动态添加对应的Panel组件
+                        var panelType = TypeAssistant.GetInstance(name)?.GetType();
+                        if (panelType != null)
+                        {
+                            panel = uiObj.AddComponent(panelType) as PanelBase;
+                        }
+                    }
+                    if (panel == null)
+                    {
+                        Debug.LogError($"UI 预设体 {name} 上没有 PanelBase 组件，且无法通过TypeAssistant创建");
                         Object.Destroy(uiObj);
                         continue;
                     }
+                    panel.Init();
 
                     UIObjects[name] = panel;
                 }
