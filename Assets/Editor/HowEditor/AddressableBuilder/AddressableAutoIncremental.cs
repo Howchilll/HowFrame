@@ -1,3 +1,4 @@
+#define EDITOR
 #if UNITY_EDITOR
 using System.Linq;
 using UnityEditor;

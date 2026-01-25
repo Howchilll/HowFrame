@@ -1,3 +1,4 @@
+#define EDITOR
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
@@ -179,6 +180,7 @@ public class PyTemplateGenerator : EditorWindow
             .ToList() ?? new List<ParameterEntry>();
 
         StringBuilder sb = new StringBuilder();
+        sb.AppendLine("#define EDITOR");
         sb.AppendLine("using System.IO;");
         sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine("using UnityEditor;");

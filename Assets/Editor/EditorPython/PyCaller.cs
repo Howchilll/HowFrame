@@ -1,3 +1,4 @@
+#define EDITOR
 using System;
 using System.Diagnostics;
 using UnityEngine;

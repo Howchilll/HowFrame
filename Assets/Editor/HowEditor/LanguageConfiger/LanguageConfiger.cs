@@ -1,3 +1,4 @@
+#define EDITOR
 #if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
@@ -18,8 +19,7 @@ public class LanguageConfiger : EditorWindow
     private string jsonOutputFolder = "EditorPath.LanguageJsonPath";
 
     private const string EditorPrefsKey = "LanguageConfiger_State";
-
-    [MenuItem("Tools/Language Helper")]
+    
     public static void OpenWindow()
     {
         var window = GetWindow<LanguageConfiger>("Language Helper");

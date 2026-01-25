@@ -2,31 +2,26 @@
   {
     "StatName": "MaxHp",
     "Value": 155.0,
-    "Type": "float",
     "Description": "最大生命值"
   },
   {
     "StatName": "MaxMp",
     "Value": 50.0,
-    "Type": "float",
     "Description": "最大魔法值"
   },
   {
     "StatName": "AttackPower",
     "Value": 10.0,
-    "Type": "int",
     "Description": "攻击力"
   },
   {
     "StatName": "DefensePower",
     "Value": 5.0,
-    "Type": "int",
     "Description": "防御力"
   },
   {
     "StatName": "Mass",
     "Value": 12.0,
-    "Type": "int",
     "Description": null
   }
 ]

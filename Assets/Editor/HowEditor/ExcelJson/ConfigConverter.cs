@@ -1,3 +1,4 @@
+#define EDITOR
 #if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
@@ -19,7 +20,8 @@ public class ConfigConverter : EditorWindow
     private string excelFolder = "EditorPath.ConfigExcelPath";
     private string jsonFolder = "EditorPath.ConfigJsonPath";
 
-    [MenuItem("Tools/Config Converter")]
+
+
     public static void ShowWindow()
     {
         GetWindow<ConfigConverter>("Config Converter");

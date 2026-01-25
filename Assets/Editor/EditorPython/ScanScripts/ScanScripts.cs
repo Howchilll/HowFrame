@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿#define EDITOR
+using System.IO;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
