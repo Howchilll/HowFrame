@@ -127,7 +127,7 @@ namespace HowFrame
 
             if (MusicClips.TryGetValue(fileName, out var clip))
             {
-                Object.Destroy(clip);
+              
                 MusicClips.Remove(fileName);
             }
         }
@@ -272,6 +272,13 @@ namespace HowFrame
                 source.rolloffMode = AudioRolloffMode.Logarithmic;
                 source.minDistance = minDis;
                 source.maxDistance = maxDis;
+            }
+            else
+            {
+                source.spatialBlend = 0f;
+                source.rolloffMode = AudioRolloffMode.Logarithmic;
+                source.minDistance = 1f;
+                source.maxDistance = 500f;
             }
         }
 

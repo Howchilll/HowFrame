@@ -22,7 +22,7 @@
         },
         {
             "Key": "PythonPath",
-            "Value": "\"Assets/SomePath\""
+            "Value": "\"/usr/bin/python3\""
         },
         {
             "Key": "ConfigExcelPath",

@@ -441,7 +441,15 @@ public class UIAutoBindWindow : EditorWindow
         {
             string fieldName = GetFieldName(info);
             string typeName = GetTypeName(info.ComponentType);
-            sb.Append($"        {fieldName} = transform.Find(\"{info.FullPath}\").GetComponent<{typeName}>();\n");
+            
+            if (info.Suffix == "item")
+            {
+                sb.Append($"        {fieldName} = transform.Find(\"{info.FullPath}\").gameObject.AddComponent<{typeName}>();\n");
+            }
+            else
+            {
+                sb.Append($"        {fieldName} = transform.Find(\"{info.FullPath}\").GetComponent<{typeName}>();\n");
+            }
         }
         
         sb.Append("\n");

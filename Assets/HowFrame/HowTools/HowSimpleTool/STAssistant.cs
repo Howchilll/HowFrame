@@ -91,5 +91,14 @@ public static class STAssistant //simple tool Assistant
     {
         return _rand.Next(2) == 0;
     }
+    public static void SetLayerRecursively(GameObject obj, int layer)
+    {
+        obj.layer = layer;
+
+        foreach (Transform child in obj.transform)
+        {
+            SetLayerRecursively(child.gameObject, layer);
+        }
+    }
 }
 }

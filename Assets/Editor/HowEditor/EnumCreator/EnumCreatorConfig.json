@@ -1,1 +1,1 @@
-{"collectionName":"PlayerEnum","elements":["HP","SP","EXE",{"groupName":"Body","children":["Hight","Weight","YYP"]}]}
+{"collectionName":"UINameEnum","elements":["StartPanel","SettingPanel","IngamePanel","HintPanel","OptionPanel","JoinPanel","PlayerPanel","NamePanel","ChangeCharacterPanel","TabPanel","HostPanel","BattlePanel","EndPanel","DiePanel","LobbyPanel","RoomPanel","CodexPanel"]}

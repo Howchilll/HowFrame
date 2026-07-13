@@ -70,6 +70,12 @@ public static class TypeAssistant
                 return null;
             }
 
+            if (typeof(MonoBehaviour).IsAssignableFrom(type))
+            {
+                Debug.LogError($"TypeAssistant: 不能直接实例化 MonoBehaviour，请使用 GetType() 获取类型后使用 AddComponent()");
+                return null;
+            }
+
             try
             {
                 return Activator.CreateInstance(type);
@@ -79,6 +85,22 @@ public static class TypeAssistant
                 Debug.LogError($"TypeAssistant: 创建实例失败 {type.FullName}\n{e}");
                 return null;
             }
+        }
+
+        public static Type GetType(string key)
+        {
+            if (!_initialized)
+            {
+                Debug.LogError("TypeAssistant: 未初始化，请先调用 Wake()");
+                return null;
+            }
+
+            if (TypeDic.TryGetValue(key, out var type))
+            {
+                return type;
+            }
+            Debug.LogError($"TypeAssistant: 未找到类型 Key = {key}");
+            return null;
         }
 
         public static T GetInstance<T>(string key) where T : class

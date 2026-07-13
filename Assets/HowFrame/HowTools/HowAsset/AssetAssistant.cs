@@ -86,6 +86,7 @@ namespace HowFrame
             return default;
         }
 
+ 
         public static T LoadAsset<T>(string fileName) where T : Object
         {
             return Resources.Load<T>(fileName);
@@ -147,7 +148,7 @@ namespace HowFrame
                         if (!_cache.ContainsKey(key))
                         {
                             _cache[key] = asset;
-                            Debug.Log($"[Addressable Loaded] {label} / {key}");
+                          //  Debug.Log($"[Addressable Loaded] {label} / {key}"+asset.GetType());
                         }
                         else
                         {

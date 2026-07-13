@@ -1,5 +1,6 @@
 #define EDITOR
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
@@ -101,7 +102,7 @@ public class AddressableAutoIncremental : AssetPostprocessor
         }
 
         // ---------------- 保存修改 ----------------
-        settings.SetDirty(AddressableAssetSettings.ModificationEvent.EntryMoved, null, true);
+        settings.SetDirty(AddressableAssetSettings.ModificationEvent.EntryMoved, new List<AddressableAssetEntry>(), true);
         AssetDatabase.SaveAssets();
         Debug.Log("✅ Addressables 增量同步完成（自动加入并简化地址）");
     }

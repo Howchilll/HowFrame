@@ -31,7 +31,7 @@ public class GameInit : MonoBehaviour
     public GameObject doneHide;
     public GameObject doneShow;
     public string langName;
-    public List<string> resourcesTags = new() { "UI", "Audio" };
+    public List<string> resourcesTags = new() { "UI", "Audio","Prefab"};
 
     [SerializeField] private List<BoolDicPair> _boolDic = new();
     [SerializeField] private List<FloatDicPair> _floatDic = new();

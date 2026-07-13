@@ -1,12 +1,10 @@
 {
   "entryPaths": [
-    "Assets/Scenes",
-    "Assets/Resources",
-    "Assets/GameRes"
+    "Assets/TDR/Assets/Scenes"
   ],
-  "targetAssetPath": "Assets/Art",
+  "targetAssetPath": "Assets/TDR/Assets/Environment",
   "ignoreRules": [
-
+   
   ]
 }
 

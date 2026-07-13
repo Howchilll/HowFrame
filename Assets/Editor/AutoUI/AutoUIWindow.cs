@@ -59,7 +59,17 @@ public class AutoUIWindow : EditorWindow
         { "_Dropdown", "TMP_Dropdown" },
         { "_Drop", "TMP_Dropdown" },
         { "_Obj", "GameObject" },
+        { "_Item", "Item" },
     };
+    
+    private class ItemInfo
+    {
+        public string gameObjectName;
+        public string relativePath;
+        public List<ComponentInfo> childComponents = new List<ComponentInfo>();
+    }
+    
+    private List<ItemInfo> itemInfos = new List<ItemInfo>();
     
     [MenuItem("Assets/Create/MVC scripts", true)]
     public static bool ValidateCreateMVCScripts()
@@ -236,6 +246,13 @@ public class AutoUIWindow : EditorWindow
         Debug.Log("开始解析预制体组件...");
         List<ComponentInfo> components = ParsePrefabComponents();
         Debug.Log($"解析完成，找到 {components.Count} 个组件");
+        
+        // 生成 Item 脚本
+        if (itemInfos.Count > 0)
+        {
+            Debug.Log($"开始生成 {itemInfos.Count} 个 Item 脚本...");
+            GenerateItemScripts(panelDir);
+        }
         
         // 生成主脚本 Panel.cs（只声明类名，不做实现）
         Debug.Log("生成Panel脚本...");
@@ -461,6 +478,13 @@ public class AutoUIWindow : EditorWindow
             matchedSuffixes.Reverse();
             foreach (var (suffix, componentType, hasCallback) in matchedSuffixes)
             {
+                // 处理 _Item 后缀：收集 Item 内部组件信息，生成独立 Item 脚本
+                if (componentType == "Item")
+                {
+                    ProcessItem(gameObjectId, gameObjectName, relativePath, ref components);
+                    break;
+                }
+                
                 // 生成变量名：去掉当前后缀，转换为驼峰命名，然后加上后缀标识
                 // 例如：quit_Btn → 去掉 _Btn 得到 quit → quit + Btn → quitBtn
                 // 例如：game_Btn_Img 匹配 _Img 时，去掉 _Img 得到 game_Btn → gameBtn + Img → gameBtnImg
@@ -484,7 +508,216 @@ public class AutoUIWindow : EditorWindow
         }
         
         Debug.Log($"总共解析到 {components.Count} 个组件");
+        Debug.Log($"找到 {itemInfos.Count} 个 Item 对象");
+        
+        // 收集所有 Item 的路径前缀，用于跳过 Item 内部的子对象
+        HashSet<string> itemPaths = new HashSet<string>();
+        foreach (var itemInfo in itemInfos)
+        {
+            itemPaths.Add(itemInfo.relativePath);
+        }
+        
+        // 过滤掉 Item 内部的子对象（它们已经在 itemInfos 中处理过了）
+        components = components.Where(c => 
+        {
+            // 检查是否是 Item 内部的子对象
+            foreach (var itemPath in itemPaths)
+            {
+                if (c.relativePath.StartsWith(itemPath + "/"))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }).ToList();
+        
+        Debug.Log($"过滤后剩余 {components.Count} 个组件");
         return components;
+    }
+    
+    private void ProcessItem(string gameObjectId, string gameObjectName, string relativePath, ref List<ComponentInfo> components)
+    {
+        Debug.Log($"处理 Item 对象: {gameObjectName} (路径: {relativePath})");
+        
+        string prefabPath = AssetDatabase.GetAssetPath(prefabReference);
+        string content = File.ReadAllText(prefabPath);
+        
+        // 找到该 GameObject 对应的 Transform ID
+        string targetGameObjectId = gameObjectId;
+        
+        // 建立 ID 映射
+        Dictionary<string, string> gameObjectIdToTransformId = new Dictionary<string, string>();
+        Dictionary<string, string> transformIdToGameObjectId = new Dictionary<string, string>();
+        Dictionary<string, string> transformIdToParentId = new Dictionary<string, string>();
+        
+        string transformPattern = @"^--- !u!(?:224|4) &(\d+)\s+(?:RectTransform|Transform):[\s\S]*?m_GameObject: \{fileID: (\d+)\}[\s\S]*?m_Father: \{fileID: (\d+)\}";
+        MatchCollection transformMatches = Regex.Matches(content, transformPattern, RegexOptions.Multiline);
+        
+        string itemRootTransformId = null;
+        foreach (Match match in transformMatches)
+        {
+            string transformId = match.Groups[1].Value;
+            string goId = match.Groups[2].Value;
+            string parentId = match.Groups[3].Value;
+            
+            gameObjectIdToTransformId[goId] = transformId;
+            transformIdToGameObjectId[transformId] = goId;
+            
+            if (goId == targetGameObjectId)
+            {
+                itemRootTransformId = transformId;
+            }
+            
+            if (parentId != "0")
+            {
+                transformIdToParentId[transformId] = parentId;
+            }
+        }
+        
+        if (itemRootTransformId == null)
+        {
+            Debug.LogWarning($"未找到 Item 的 Transform: {gameObjectName}");
+            return;
+        }
+        
+        // 创建 Item 信息
+        ItemInfo itemInfo = new ItemInfo
+        {
+            gameObjectName = gameObjectName,
+            relativePath = relativePath
+        };
+        
+        // 获取 Item 名称前缀（用于生成 Item 类名）
+        string itemPrefix = gameObjectName;
+        if (itemPrefix.EndsWith("_Item"))
+        {
+            itemPrefix = itemPrefix.Substring(0, itemPrefix.Length - 5);
+        }
+        
+        // 收集 Item 内部所有子对象（不包括 Item 根对象自身）
+        string gameObjectPattern = @"^--- !u!1 &(\d+)\s+GameObject:[\s\S]*?m_Name: ([^\r\n]+)";
+        MatchCollection gameObjectMatches = Regex.Matches(content, gameObjectPattern, RegexOptions.Multiline);
+        
+        HashSet<string> childTransformIds = new HashSet<string>();
+        System.Action<string> collectChildIds = null;
+        collectChildIds = (string parentTransformId) =>
+        {
+            foreach (var kvp in transformIdToParentId)
+            {
+                if (kvp.Value == parentTransformId)
+                {
+                    childTransformIds.Add(kvp.Key);
+                    collectChildIds(kvp.Key);
+                }
+            }
+        };
+        collectChildIds(itemRootTransformId);
+        
+        // 处理 Item 内部的子对象
+        foreach (Match match in gameObjectMatches)
+        {
+            string childGoId = match.Groups[1].Value;
+            string childName = match.Groups[2].Value.Trim();
+            
+            if (!gameObjectIdToTransformId.ContainsKey(childGoId))
+                continue;
+            
+            string childTransformId = gameObjectIdToTransformId[childGoId];
+            
+            if (!childTransformIds.Contains(childTransformId))
+                continue;
+            
+            // 计算子对象的相对路径（相对于 Item 根对象）
+            string childRelativePath = childName;
+            string currentTransformId = childTransformId;
+            
+            while (transformIdToParentId.ContainsKey(currentTransformId))
+            {
+                string parentId = transformIdToParentId[currentTransformId];
+                
+                if (parentId == itemRootTransformId)
+                    break;
+                
+                if (!transformIdToGameObjectId.ContainsKey(parentId))
+                    break;
+                
+                string parentGoId = transformIdToGameObjectId[parentId];
+                
+                // 找到父对象的名称
+                foreach (Match goMatch in gameObjectMatches)
+                {
+                    if (goMatch.Groups[1].Value == parentGoId)
+                    {
+                        string parentName = goMatch.Groups[2].Value.Trim();
+                        childRelativePath = parentName + "/" + childRelativePath;
+                        break;
+                    }
+                }
+                
+                currentTransformId = parentId;
+            }
+            
+            // 处理子对象的组件（使用完整路径）
+            string fullPath = relativePath + "/" + childRelativePath;
+            ProcessChildComponents(childName, fullPath, ref itemInfo.childComponents);
+        }
+        
+        // 如果 Item 内部有子组件，添加到 itemInfos 列表
+        if (itemInfo.childComponents.Count > 0)
+        {
+            itemInfos.Add(itemInfo);
+            Debug.Log($"Item {gameObjectName} 包含 {itemInfo.childComponents.Count} 个子组件");
+        }
+    }
+    
+    private void ProcessChildComponents(string gameObjectName, string fullPath, ref List<ComponentInfo> childComponents)
+    {
+        // 根据后缀识别组件类型
+        string remainingName = gameObjectName;
+        List<(string suffix, string componentType, bool hasCallback)> matchedSuffixes = new List<(string, string, bool)>();
+        
+        var sortedSuffixes = suffixToComponentType.Keys.OrderByDescending(s => s.Length);
+        
+        while (!string.IsNullOrEmpty(remainingName))
+        {
+            bool found = false;
+            foreach (string suffix in sortedSuffixes)
+            {
+                if (suffix == "_Item")
+                    continue;
+                    
+                if (remainingName.EndsWith(suffix))
+                {
+                    string compType = suffixToComponentType[suffix];
+                    bool needsCallback = (compType == "Button" || compType == "Toggle" || compType == "Slider" || compType == "TMP_Dropdown");
+                    matchedSuffixes.Add((suffix, compType, needsCallback));
+                    remainingName = remainingName.Substring(0, remainingName.Length - suffix.Length);
+                    found = true;
+                    break;
+                }
+            }
+            
+            if (!found)
+                break;
+        }
+        
+        matchedSuffixes.Reverse();
+        foreach (var (suffix, componentType, hasCallback) in matchedSuffixes)
+        {
+            string nameWithoutSuffix = gameObjectName.Substring(0, gameObjectName.Length - suffix.Length);
+            string baseName = ToCamelCase(nameWithoutSuffix);
+            
+            string suffixIdentifier = suffix.Substring(1);
+            if (suffixIdentifier.Length > 0)
+            {
+                suffixIdentifier = char.ToUpper(suffixIdentifier[0]) + suffixIdentifier.Substring(1);
+            }
+            
+            string variableName = baseName + suffixIdentifier;
+            
+            childComponents.Add(new ComponentInfo(gameObjectName, fullPath, componentType, variableName, hasCallback));
+            Debug.Log($"  - Item子组件: {gameObjectName} -> {componentType} (路径: {fullPath}, 变量名: {variableName})");
+        }
     }
     
     private string ToCamelCase(string name)
@@ -524,13 +757,29 @@ public class AutoUIWindow : EditorWindow
         Debug.Log($"模板是否包含Define标记: {templateContent.Contains("//Define")}");
         Debug.Log($"模板是否包含Init标记: {templateContent.Contains("//Init")}");
         
-        // 生成Define区域的代码
+        // 生成Define区域的代码（普通组件）
         string defineCode = "";
         foreach (var comp in components)
         {
+            if (comp.componentType == "Item")
+                continue;
             defineCode += $"    [SerializeField]\n    private {comp.componentType} {comp.variableName};\n";
             Debug.Log($"添加Define: [SerializeField] {comp.componentType} {comp.variableName}");
         }
+        
+        // 生成 Item 类型的声明
+        foreach (var itemInfo in itemInfos)
+        {
+            string itemName = itemInfo.gameObjectName;
+            if (itemName.EndsWith("_Item"))
+            {
+                itemName = itemName.Substring(0, itemName.Length - 5);
+            }
+            string itemClassName = ToPascalCase(itemName) + "Item";
+            defineCode += $"    [SerializeField]\n    private {itemClassName} {ToCamelCase(itemName)}Item;\n";
+            Debug.Log($"添加Item定义: {itemClassName} {ToCamelCase(itemName)}Item");
+        }
+        
         Debug.Log($"Define代码:\n{defineCode}");
         
         // 生成Init区域的代码（组件注册）
@@ -570,6 +819,21 @@ public class AutoUIWindow : EditorWindow
                 }
             }
         }
+        
+        // 生成 Item 绑定代码（使用AddComponent而非GetComponent）
+        foreach (var itemInfo in itemInfos)
+        {
+            string itemName = itemInfo.gameObjectName;
+            if (itemName.EndsWith("_Item"))
+            {
+                itemName = itemName.Substring(0, itemName.Length - 5);
+            }
+            string itemClassName = ToPascalCase(itemName) + "Item";
+            string itemFieldName = ToCamelCase(itemName) + "Item";
+            initCode += $"        {itemFieldName} = transform.Find(\"{itemInfo.relativePath}\").gameObject.AddComponent<{itemClassName}>();\n";
+            Debug.Log($"添加Item绑定: {itemFieldName} = transform.Find(\"{itemInfo.relativePath}\").gameObject.AddComponent<{itemClassName}>()");
+        }
+        
         Debug.Log($"Init代码:\n{initCode}");
         
         // 替换模板中的占位符
@@ -838,7 +1102,6 @@ public class AutoUIWindow : EditorWindow
     
     private string LoadTemplateAndReplace(string templatePath)
     {
-        // 将 Assets 路径转换为完整文件系统路径
         string fullPath = Path.Combine(Application.dataPath, "..", templatePath);
         fullPath = Path.GetFullPath(fullPath);
         
@@ -851,8 +1114,6 @@ public class AutoUIWindow : EditorWindow
         try
         {
             string templateContent = File.ReadAllText(fullPath, System.Text.Encoding.UTF8);
-            // 替换占位符 {PANEL_NAME} 为完整的面板名称（包含Panel后缀）
-            // 先替换 {PANEL_NAME}Panel，再替换 {PANEL_NAME}，确保都能正确替换
             templateContent = templateContent.Replace("{PANEL_NAME}Panel", panelName);
             templateContent = templateContent.Replace("{PANEL_NAME}", panelName);
             return templateContent;
@@ -864,7 +1125,117 @@ public class AutoUIWindow : EditorWindow
         }
     }
     
-    
+    private void GenerateItemScripts(string panelDir)
+    {
+        foreach (var itemInfo in itemInfos)
+        {
+            string itemName = itemInfo.gameObjectName;
+            if (itemName.EndsWith("_Item"))
+            {
+                itemName = itemName.Substring(0, itemName.Length - 5);
+            }
+            string itemClassName = ToPascalCase(itemName) + "Item";
+            
+            Debug.Log($"生成 Item 脚本: {itemClassName}");
+            
+            string itemPath = Path.Combine(panelDir, itemClassName + ".cs");
+            string templatePath = "Assets/Editor/AutoUI/Template_Item.cs.txt";
+            string templateContent = File.ReadAllText(Path.Combine(Application.dataPath, "..", templatePath), System.Text.Encoding.UTF8);
+            templateContent = templateContent.Replace("{ITEM_NAME}", itemClassName);
+            
+            string defineCode = "";
+            foreach (var comp in itemInfo.childComponents)
+            {
+                string typeName = comp.componentType;
+                if (typeName == "GameObject")
+                    typeName = "GameObject";
+                else if (typeName == "Item")
+                    continue;
+                    
+                defineCode += $"    [SerializeField]\n    private {typeName} {comp.variableName};\n";
+            }
+            
+            string awakeCode = "";
+            foreach (var comp in itemInfo.childComponents)
+            {
+                string childPath = comp.relativePath.Replace(itemInfo.relativePath + "/", "");
+                if (comp.componentType == "GameObject")
+                {
+                    awakeCode += $"        {comp.variableName} = transform.Find(\"{childPath}\").gameObject;\n";
+                }
+                else if (comp.componentType != "Item")
+                {
+                    awakeCode += $"        {comp.variableName} = transform.Find(\"{childPath}\").GetComponent<{comp.componentType}>();\n";
+                }
+            }
+            
+            // 检查文件是否已存在，如果存在则只更新 Define 和 Awake 部分
+            if (File.Exists(itemPath))
+            {
+                Debug.Log($"Item 脚本已存在，进行增量更新: {itemClassName}");
+                string existingContent = File.ReadAllText(itemPath, System.Text.Encoding.UTF8);
+                
+                // 替换 Define 区域
+                string defineStart = "//Define";
+                string defineEnd = "//end Define";
+                int defineStartIndex = existingContent.IndexOf(defineStart);
+                int defineEndIndex = existingContent.IndexOf(defineEnd);
+                if (defineStartIndex >= 0 && defineEndIndex > defineStartIndex)
+                {
+                    int defineNewlineIndex = existingContent.IndexOf('\n', defineStartIndex);
+                    string beforeDefine = existingContent.Substring(0, defineNewlineIndex + 1);
+                    string afterDefine = existingContent.Substring(defineEndIndex);
+                    existingContent = beforeDefine + defineCode.TrimEnd() + "\n\n" + afterDefine;
+                }
+                
+                // 替换 Awake 区域
+                string awakeStart = "//Awake";
+                string awakeEnd = "//end Awake";
+                int awakeStartIndex = existingContent.IndexOf(awakeStart);
+                int awakeEndIndex = existingContent.IndexOf(awakeEnd);
+                if (awakeStartIndex >= 0 && awakeEndIndex > awakeStartIndex)
+                {
+                    int awakeNewlineIndex = existingContent.IndexOf('\n', awakeStartIndex);
+                    string beforeAwake = existingContent.Substring(0, awakeNewlineIndex + 1);
+                    string afterAwake = existingContent.Substring(awakeEndIndex);
+                    existingContent = beforeAwake + awakeCode.TrimEnd() + "\n" + afterAwake;
+                }
+                
+                File.WriteAllText(itemPath, existingContent, System.Text.Encoding.UTF8);
+                Debug.Log($"Item 脚本已更新: {itemPath}");
+            }
+            else
+            {
+                // 文件不存在，使用模板生成
+                string defineStart = "//Define";
+                string defineEnd = "//end Define";
+                int defineStartIndex = templateContent.IndexOf(defineStart);
+                int defineEndIndex = templateContent.IndexOf(defineEnd);
+                if (defineStartIndex >= 0 && defineEndIndex > defineStartIndex)
+                {
+                    int defineNewlineIndex = templateContent.IndexOf('\n', defineStartIndex);
+                    string beforeDefine = templateContent.Substring(0, defineNewlineIndex + 1);
+                    string afterDefine = templateContent.Substring(defineEndIndex);
+                    templateContent = beforeDefine + defineCode.TrimEnd() + "\n\n" + afterDefine;
+                }
+                
+                string awakeStart = "//Awake";
+                string awakeEnd = "//end Awake";
+                int awakeStartIndex = templateContent.IndexOf(awakeStart);
+                int awakeEndIndex = templateContent.IndexOf(awakeEnd);
+                if (awakeStartIndex >= 0 && awakeEndIndex > awakeStartIndex)
+                {
+                    int awakeNewlineIndex = templateContent.IndexOf('\n', awakeStartIndex);
+                    string beforeAwake = templateContent.Substring(0, awakeNewlineIndex + 1);
+                    string afterAwake = templateContent.Substring(awakeEndIndex);
+                    templateContent = beforeAwake + awakeCode.TrimEnd() + "\n" + afterAwake;
+                }
+                
+                File.WriteAllText(itemPath, templateContent, System.Text.Encoding.UTF8);
+                Debug.Log($"Item 脚本已写入: {itemPath}");
+            }
+        }
+    }
     
     private void LoadSettings()
     {

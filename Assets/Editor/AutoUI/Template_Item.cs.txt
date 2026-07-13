@@ -1,0 +1,18 @@
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+using HowFrame;
+
+public class {ITEM_NAME} : MonoBehaviour
+{
+//Define
+
+//end Define
+
+    private void Awake()
+    {
+//Awake
+
+//end Awake
+    }
+}

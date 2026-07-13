@@ -26,8 +26,13 @@ public class Ref<T>
         {
             if (_isComputed) return; // 计算属性不允许直接赋值
             
+            if (EqualityComparer<T>.Default.Equals(_value, value))
+            {
+                return; // 值未变化，不触发 OnChanged
+            }
+            
             _value = value;
-            OnChanged?.Invoke(_value); // 无论是否相等，都触发
+            OnChanged?.Invoke(_value);
         }
     }
 

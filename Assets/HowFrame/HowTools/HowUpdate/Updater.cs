@@ -86,7 +86,7 @@ namespace HowFrame
             _staticUnityUpdate -= unityUpdate;
             _staticSystemUpdate -= systemUpdate;
         }
-
+        
         // -------- 循环执行 --------
         private IEnumerator RunLoop()
         {
@@ -99,7 +99,7 @@ namespace HowFrame
                 // System 异步执行
                 if (_systemBusy)
                 {
-                    Debug.LogWarning("[Updater] SystemUpdate 上一帧尚未完成");
+                   //Debug.LogWarning("[Updater] SystemUpdate 上一帧尚未完成");
                 }
                 else
                 {

@@ -44,8 +44,7 @@ namespace HowFrame
                     var panel = uiObj.GetComponent<PanelBase>();
                     if (panel == null)
                     {
-                        // 通过TypeAssistant动态添加对应的Panel组件
-                        var panelType = TypeAssistant.GetInstance(name)?.GetType();
+                        var panelType = TypeAssistant.GetType(name);
                         if (panelType != null)
                         {
                             panel = uiObj.AddComponent(panelType) as PanelBase;
@@ -134,6 +133,67 @@ namespace HowFrame
             Hide(false, UINames.Select(k => k.name).ToArray());
         }
 
+        #endregion
+
+        #region Check UI
+
+        /// <summary>
+        /// 检查指定UI面板是否处于显示状态
+        /// </summary>
+        public static bool Check(string UIName)
+        {
+            if (UIObjects.TryGetValue(UIName, out var panel))
+            {
+                return panel.gameObject.activeSelf;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 检查指定UI面板是否处于显示状态
+        /// </summary>
+        public static bool Check(EnumKeyBase UIName)
+        {
+            return Check(UIName.name);
+        }
+
+        #endregion
+
+        #region HideAll
+
+        /// <summary>
+        /// 隐藏所有已加载的UI面板
+        /// </summary>
+        public static void HideAll(bool destroy = false)
+        {
+            foreach (var pair in UIObjects)
+            {
+                if (!pair.Value.gameObject.activeSelf)
+                {
+                    continue;
+                }
+
+                pair.Value.WhenHide();
+                if (destroy)
+                {
+                    Object.Destroy(pair.Value.gameObject);
+                }
+                else
+                {
+                    pair.Value.gameObject.SetActive(false);
+                }
+            }
+
+            if (destroy)
+            {
+                UIObjects.Clear();
+            }
+        }
+
+        #endregion
+
+        #region Hide PanelBase
+
         public static void Hide(PanelBase panel, bool destroy = false)
         {
             if (panel == null) return;
@@ -172,6 +232,7 @@ namespace HowFrame
 
         #endregion
 
+   
         /// <summary>
         /// 初始化 UIManager（延迟初始化，在资源加载完成后调用）
         /// </summary>

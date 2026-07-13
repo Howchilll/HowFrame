@@ -59,6 +59,8 @@ public class PyCaller
         pythonProcess.StartInfo.RedirectStandardOutput = true;
         pythonProcess.StartInfo.RedirectStandardError = true;
         pythonProcess.StartInfo.CreateNoWindow = true;
+        pythonProcess.StartInfo.StandardOutputEncoding = System.Text.Encoding.UTF8;
+        pythonProcess.StartInfo.StandardErrorEncoding = System.Text.Encoding.UTF8;
         
         pythonProcess.StartInfo.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
 
@@ -69,7 +71,7 @@ public class PyCaller
                 Debug.Log("[Python Output] " + e.Data);
             }
         };
-
+        
         pythonProcess.ErrorDataReceived += (sender, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))
