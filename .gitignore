@@ -70,3 +70,23 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+
+# ============================================================
+# 本项目额外忽略
+# ============================================================
+
+# IDE / 编辑器配置
+.vscode/
+.idea/
+*.user
+*.suo
+
+# macOS 残留
+.DS_Store
+**/.DS_Store
+
+# Addressables 构建产物
+/Bundles/
+/[Aa]ssets/[Ss]erver[Dd]ata/
+
+# Unity 编辑器生成的本地 csproj/sln 已通过上方 *.csproj/*.sln 忽略
