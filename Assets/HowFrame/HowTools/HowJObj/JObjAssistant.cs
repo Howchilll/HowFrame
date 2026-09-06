@@ -2,7 +2,8 @@
     using HowFrame;
     using UnityEngine;
     using System.Collections.Generic;
-    using JObject = Newtonsoft.Json.Linq.JObject;
+    using Unity.Plastic.Newtonsoft.Json.Linq;
+    
 
     public static class JObjAssistant
     {
