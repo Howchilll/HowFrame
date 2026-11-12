@@ -46,13 +46,14 @@ public class AddressableAutoIncremental : AssetPostprocessor
             if (entry == null)
             {
                 entry = settings.CreateOrMoveEntry(guid, group, false, false);
+                // 只给新加进来的资源起地址：已有的可能被手动 / 菜单改过（如背景音乐固定叫 bgm_main），
+                // 改个导入设置触发重新导入时不能冲掉
+                entry.address = System.IO.Path.GetFileNameWithoutExtension(assetPath);
             }
             else if (entry.parentGroup != group)
             {
                 settings.MoveEntry(entry, group, false);
             }
-
-            entry.address = System.IO.Path.GetFileNameWithoutExtension(assetPath);
         }
 
         // ---------------- 删除 ----------------

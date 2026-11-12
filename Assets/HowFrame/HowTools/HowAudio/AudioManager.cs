@@ -82,6 +82,18 @@ namespace HowFrame
             }
         }
 
+        /// <summary>播放已经加载好的音乐（资源缓存按资源名存，按地址单独加载的音乐走这里）</summary>
+        public static void AddMusic(string key, AudioClip clip, float volume)
+        {
+            if (!clip || MusicSources.ContainsKey(key)) return;
+
+            MusicClips[key] = clip;
+            AudioSource source = GetSoundSource();
+            SetupAudioSource(source, clip, null, volume, 1, 10, true, true);
+            MusicSources[key] = source;
+            source.Play();
+        }
+
         public static void EndMusic(string fileName)
         {
             if (!MusicSources.TryGetValue(fileName, out var source) || source == null) return;

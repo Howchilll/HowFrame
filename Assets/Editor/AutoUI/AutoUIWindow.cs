@@ -8,7 +8,6 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System;
 using System.Linq;
-using Object = UnityEngine.Object;
 
 // 组件信息类
 public class ComponentInfo
@@ -32,7 +31,8 @@ public class ComponentInfo
 public class AutoUIWindow : EditorWindow
 {
     private string scriptOutputPath = "Assets/Scripts/DMT_ACT_Implement/UI";
-    private Object prefabReference;
+    private List<GameObject> prefabReferences = new List<GameObject>();
+    private GameObject prefabReference;
     private string panelName; // 从预制体名称自动提取
     
     private Vector2 scrollPos;
@@ -74,52 +74,49 @@ public class AutoUIWindow : EditorWindow
     [MenuItem("Assets/Create/MVC scripts", true)]
     public static bool ValidateCreateMVCScripts()
     {
-        GameObject selected = Selection.activeObject as GameObject;
-        if (selected == null) return false;
-        
-        string path = AssetDatabase.GetAssetPath(selected);
-        if (string.IsNullOrEmpty(path) || !path.EndsWith(".prefab")) return false;
-        
-        // 检查预制体名称是否以"Panel"结尾
-        string prefabName = Path.GetFileNameWithoutExtension(path);
-        return prefabName.EndsWith("Panel", StringComparison.OrdinalIgnoreCase);
+        return GetSelectedPanelPrefabs().Count > 0;
     }
     
     [MenuItem("Assets/Create/MVC scripts", false, 1)]
     public static void ShowWindow()
     {
-        GameObject selected = Selection.activeObject as GameObject;
-        if (selected == null)
+        List<GameObject> selectedPrefabs = GetSelectedPanelPrefabs();
+        if (selectedPrefabs.Count == 0)
         {
-            EditorUtility.DisplayDialog("错误", "请选择一个预制体", "确定");
+            EditorUtility.DisplayDialog("错误", "请至少选择一个名称以 \"Panel\" 结尾的预制体", "确定");
             return;
         }
-        
-        string path = AssetDatabase.GetAssetPath(selected);
-        if (string.IsNullOrEmpty(path) || !path.EndsWith(".prefab"))
-        {
-            EditorUtility.DisplayDialog("错误", "请选择一个预制体文件", "确定");
-            return;
-        }
-        
-        string prefabName = Path.GetFileNameWithoutExtension(path);
-        if (!prefabName.EndsWith("Panel", StringComparison.OrdinalIgnoreCase))
-        {
-            EditorUtility.DisplayDialog("错误", "预制体名称必须以\"Panel\"结尾", "确定");
-            return;
-        }
-        
+
         var window = GetWindow<AutoUIWindow>("MVC Scripts Generator");
-        window.minSize = new Vector2(400, 200);
-        
-        // 设置预制体引用
-        window.prefabReference = selected;
-        
-        // 使用完整的预制体名称作为面板名称（包含Panel后缀）
-        window.panelName = prefabName;
-        
+        window.minSize = new Vector2(440, 260);
+        window.prefabReferences = selectedPrefabs;
+        window.prefabReference = null;
+        window.panelName = null;
+
         // 加载保存的设置
         window.LoadSettings();
+        window.Repaint();
+    }
+
+    private static List<GameObject> GetSelectedPanelPrefabs()
+    {
+        return Selection.objects
+            .OfType<GameObject>()
+            .Where(selected =>
+            {
+                string path = AssetDatabase.GetAssetPath(selected);
+                if (string.IsNullOrEmpty(path) ||
+                    !path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                string prefabName = Path.GetFileNameWithoutExtension(path);
+                return prefabName.EndsWith("Panel", StringComparison.OrdinalIgnoreCase);
+            })
+            .Distinct()
+            .OrderBy(AssetDatabase.GetAssetPath)
+            .ToList();
     }
     
     private void OnDisable()
@@ -135,11 +132,18 @@ public class AutoUIWindow : EditorWindow
         EditorGUILayout.Space(10);
         
         // 显示当前选择的预制体信息
-        if (prefabReference != null)
+        if (prefabReferences != null && prefabReferences.Count > 0)
         {
-            string prefabPath = AssetDatabase.GetAssetPath(prefabReference);
-            string prefabName = Path.GetFileNameWithoutExtension(prefabPath);
-            EditorGUILayout.HelpBox($"预制体: {prefabName}\n面板名称: {panelName}", MessageType.Info);
+            EditorGUILayout.HelpBox($"已选择 {prefabReferences.Count} 个 UI 预制体，将按下列顺序批量生成：", MessageType.Info);
+            EditorGUI.indentLevel++;
+            foreach (GameObject selectedPrefab in prefabReferences)
+            {
+                if (selectedPrefab != null)
+                {
+                    EditorGUILayout.LabelField(selectedPrefab.name);
+                }
+            }
+            EditorGUI.indentLevel--;
         }
         else
         {
@@ -174,7 +178,7 @@ public class AutoUIWindow : EditorWindow
         EditorGUILayout.Space(10);
         
         // 生成按钮
-        if (GUILayout.Button("生成脚本", GUILayout.Height(30)))
+        if (GUILayout.Button($"生成 {prefabReferences.Count} 组脚本", GUILayout.Height(30)))
         {
             Generate();
         }
@@ -185,35 +189,82 @@ public class AutoUIWindow : EditorWindow
     private void Generate()
     {
         Debug.Log("========== Generate方法被调用 ==========");
+        if (prefabReferences == null || prefabReferences.Count == 0)
+        {
+            EditorUtility.DisplayDialog("错误", "请先选择至少一个预制体", "确定");
+            Debug.LogError("预制体列表为空！");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(scriptOutputPath))
+        {
+            EditorUtility.DisplayDialog("错误", "请选择脚本输出路径", "确定");
+            return;
+        }
+
+        List<string> succeededPanels = new List<string>();
+        List<string> failedPanels = new List<string>();
+
         try
         {
-            if (prefabReference == null)
+            for (int i = 0; i < prefabReferences.Count; i++)
             {
-                EditorUtility.DisplayDialog("错误", "请先选择预制体", "确定");
-                Debug.LogError("预制体参考为空！");
-                return;
+                GameObject selectedPrefab = prefabReferences[i];
+                if (selectedPrefab == null)
+                {
+                    failedPanels.Add("已丢失的预制体引用");
+                    continue;
+                }
+
+                string prefabPath = AssetDatabase.GetAssetPath(selectedPrefab);
+                string currentPanelName = Path.GetFileNameWithoutExtension(prefabPath);
+                EditorUtility.DisplayProgressBar(
+                    "批量生成 MVC 脚本",
+                    $"正在处理 {currentPanelName} ({i + 1}/{prefabReferences.Count})",
+                    (float)i / prefabReferences.Count
+                );
+
+                try
+                {
+                    prefabReference = selectedPrefab;
+                    panelName = currentPanelName;
+                    itemInfos.Clear();
+
+                    Debug.Log($"========== 开始处理 {panelName} ({i + 1}/{prefabReferences.Count}) ==========");
+                    GenerateScripts();
+                    succeededPanels.Add(panelName);
+                }
+                catch (Exception e)
+                {
+                    failedPanels.Add($"{currentPanelName}: {e.Message}");
+                    Debug.LogError($"面板 {currentPanelName} 生成失败：{e}");
+                }
             }
-            
-            if (string.IsNullOrEmpty(scriptOutputPath))
+
+            if (succeededPanels.Count > 0)
             {
-                EditorUtility.DisplayDialog("错误", "请选择脚本输出路径", "确定");
-                return;
+                Debug.Log("刷新资源数据库...");
+                AssetDatabase.Refresh();
             }
-            
-            Debug.Log($"预制体参考: {prefabReference.name}");
-            Debug.Log($"提取的面板名称: {panelName}");
-            
-            // 生成脚本
-            GenerateScripts();
-            
-            EditorUtility.DisplayDialog("成功", $"面板 {panelName} 脚本生成成功！\n请查看Console了解详细信息", "确定");
         }
-        catch (Exception e)
+        finally
         {
-            Debug.LogError($"========== 生成失败 ==========");
-            Debug.LogError($"错误信息: {e.Message}");
-            Debug.LogError($"堆栈跟踪: {e.StackTrace}");
-            EditorUtility.DisplayDialog("错误", $"生成失败：{e.Message}\n{e.StackTrace}", "确定");
+            EditorUtility.ClearProgressBar();
+            prefabReference = null;
+            panelName = null;
+            itemInfos.Clear();
+        }
+
+        string resultMessage = $"成功生成 {succeededPanels.Count}/{prefabReferences.Count} 组 UI 脚本。";
+        if (failedPanels.Count > 0)
+        {
+            resultMessage += "\n\n失败项：\n" + string.Join("\n", failedPanels);
+            EditorUtility.DisplayDialog("批量生成完成（有失败）", resultMessage, "确定");
+        }
+        else
+        {
+            resultMessage += "\n\n" + string.Join("\n", succeededPanels);
+            EditorUtility.DisplayDialog("批量生成成功", resultMessage, "确定");
         }
     }
     
@@ -278,9 +329,6 @@ public class AutoUIWindow : EditorWindow
         File.WriteAllText(modelPath, modelContent, System.Text.Encoding.UTF8);
         Debug.Log($"Model脚本已写入: {modelPath}");
         
-        // 刷新资源数据库
-        Debug.Log("刷新资源数据库...");
-        AssetDatabase.Refresh();
         Debug.Log("========== 脚本生成完成 ==========");
     }
     

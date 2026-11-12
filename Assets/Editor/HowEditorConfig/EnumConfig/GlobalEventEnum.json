@@ -1,1 +1,1 @@
-{"collectionName":"GlobalEvent","elements":["InputTypeChange","LanguageChange","StartGame"]}
+{"collectionName":"GlobalEventEnum","elements":["InputTypeChange","LanguageChange","StartGame"]}
