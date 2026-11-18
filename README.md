@@ -1,84 +1,65 @@
-# 🎮 HowFrame — 为 Unity 独立开发者打造的轻量级游戏框架
+# 🎮 HowFrame — a lightweight Unity framework for indie developers
 
-一个简单、高效、高性能的 Unity 小游戏开发框架，专注本地运行，帮助你专心打造玩法与内容。
+A simple, efficient Unity framework for small, offline games, so you can focus on gameplay and content instead of plumbing.
 
-## 🧩 功能模块一览
+Built around **static assistant classes**, **type-safe enums** and **editor automation**: most features are one static call away, and the editor tools generate the boring code and data for you.
 
-- **底层系统**：存档系统、资源加载、事件中心、数据管理等  
-- **前端系统**：音效控制、动态 UI、语言本地化、Volume 后处理等
+> Full documentation: [Assets/Docs/README.md](Assets/Docs/README.md) · Roadmap: [Assets/Docs/TODO.md](Assets/Docs/TODO.md)
 
-## 🚫 不包含内容
+## 🧩 What's inside
 
-- 无热更新框架  
-- 无联网 / 服务器依赖  
-→ 适用于 **小体量、单机、快速迭代** 的游戏项目
+**Runtime (`Assets/HowFrame`)**
 
-## 👤 适用人群
+| Area | Modules |
+| --- | --- |
+| Startup | `GameInit` / `HowInit`: async init with ready signals (`WhenReady`, `await Ready`, `Progress`); one failing module never blocks the rest |
+| Assets | `AssetAssistant`: StreamingAssets / Resources / Addressables, label-based preloading and caching with progress |
+| UI | `UIManager` + `PanelBase`: layered canvases, navigation stack (`Push` / `Back`), automatic language refresh |
+| Localization | `LangManager`: language × module JSON, live switching, missing-key fallback and tracking |
+| Events & data | `EventAssistant`, `PropertyAssistant` / `Ref<T>`, `DataAssistant` (MessagePack / JSON saves with atomic writes) |
+| Audio & input | `AudioManager` (music / pooled sounds via AudioMixer), `InputAssistant` (new Input System, device-change detection) |
+| Utilities | Update / coroutine / thread helpers, object pools, weighted random, scene loading, and more |
+| Debugging | `HowConsole`: in-game command console; turn any static method into a command with `[HowCommand]` |
+| Enums | `HowEnum`: type-safe `EnumKey<TTag>` enums generated from JSON |
 
-- 独立开发者
-- Unity 学习者
-- 小团队原型开发 / 内部工具框架搭建
+**Editor (`Assets/Editor`)**
+
+- **Project Settings > HowFrame**: one place for every path the tools depend on
+- **Doctor**: one-click health check of framework conventions (also runs from the command line / CI)
+- **Runtime Debugger**: inspect init state, asset cache, UI stack, events and missing translations in Play mode
+- **Missing References**: find missing scripts and references to deleted assets
+- **Play from boot scene**: press Play anywhere, start from the scene that holds `GameInit`
+- Generators: Enum Creator, Path Creator, AutoUI (View / Model / Panel scripts from a prefab), Excel ↔ JSON config and language tools, Addressables auto-grouping, unused-asset cleanup
+
+## 🚀 Quick start
+
+1. Open the project in **Unity 6** (6000.4).
+2. Add the `GameInit` component to your boot scene and enable `Tools/HowFrame/从启动场景运行` ("play from boot scene").
+3. Put framework assets (`Canvas`, `HowInputActions`, optional `AudioMixer`) in Addressables with the `Instance` label.
+4. Run `Tools/HowFrame/Doctor` and fix anything it reports.
+5. See `Assets/HowFrameExample` and `Assets/Scenes/HowFrameExampleScene` for usage of each module.
+
+```csharp
+GameInit.WhenReady(() =>
+{
+    UIManager.Push(UINameEnum.TestPanel);
+    AudioManager.AddMusic("BGM");
+});
+```
+
+## 🚫 Out of scope
+
+- No hot-update framework
+- No networking / server dependencies
+
+→ Aimed at **small, single-player, fast-iterating** projects.
+
+## 👤 Who it's for
+
+- Indie developers
+- Unity learners
+- Small teams building prototypes or internal tool frameworks
 
 ---
 
-✨ **觉得不错？点个 Star ⭐️ 支持一下吧！更新新功能时更容易找到我 ovo**
-==============================================
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-框架由四部分组成
-1.StaticAssistant 提供底层功能的静态工具类
--	AssetAssistant		:用于从Resources和StreamingAssets 中得到各种资源
--	DataAssistant		:用于将结构体或类进行序列化或者反序列化为加密二进制或者json
--	DebugAssistant		:提供对所有类型的拓展方法 T.log() 相比Debug.log()更直接并且有解嵌套能力
--	EventAssistant		:提供全局的事件注册于调用方法,主要针对Action, 也支持带参数和返回值
--	KeyAssistant 		:提供配置按键的能力,以及"改键位"和保存的方法
--	MonoAssistant		:将monobehavior的每帧执行公开为事件,方便一般类去注册
--	SceneLoadAssistant	:提供异步的切换关卡方法,支持按任意键进入关卡以及得到关卡加载量
--	TypeAssistant		:提供运行时的动态获取类型的实例化的能力,只需要给目标类打上 IRuntimeGet 接口
-
-//按键初始化所要的配置文件为存于Asset/StreamingAsset/Config里的KeyConfig
-
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-2.Data 为游戏需要的存档数据提供数据类
--	xxxData			:供全局访问的静态数据信息
--	xxxDataInfo 		:相关数据类本身的定义所在
--	DataManager 		:封装了所有数据的读写方法
-
-//数据初始化所要的配置文件为存于Asset/StreamingAsset/Config里的配置文件
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-3.ObjectTool 提供一些对象工具
--	ObjectPool		:对象池基类, ObjectPool<P, O> 实现时 P为对象池本身,O为对象本身
--	SingleTon 		:提供对mono和一般类的单例快速实现
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-4.Interaction 交互层 提供最直接的开发便捷
--	AudioManager		:通过简单API 比如 AddSound()在语句行内动态添加音效 或音乐
--	CameraEffect		:提供绑定渲染摄像机 ,并且提供一系列的后处理方法
--	LanguageManager	:提供全局的文本调用方法,可以用来实现多种语言
--	UIManager 		:提供对UI预制体的动态加载与卸载
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-上述是对主要脚本的功能简要说明,更细节的用法会在 ExampleScene 里面展示
-另外,这是一个比较底层开发的框架,根据不同项目可能需要再做对应封装或者简化.
-
-
-
-
-
-
-
-
-
-
-
-
+✨ **Like it? Give it a Star ⭐️ so it's easy to find when new features land!**
