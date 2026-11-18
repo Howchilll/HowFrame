@@ -107,8 +107,37 @@ namespace HowFrame
             _initialized = true;
         }
 
+        // 运行期间遇到的缺失 key（按模块），切换语言不清空，方便调试窗口导出到 Excel
+        private static readonly Dictionary<string, HashSet<string>> _missingKeys = new Dictionary<string, HashSet<string>>();
+
+        /// <summary>运行期间遇到的缺失 key：模块名 → key 集合</summary>
+        public static IReadOnlyDictionary<string, HashSet<string>> MissingKeys => _missingKeys;
+
+        /// <summary>缺失 key 总数</summary>
+        public static int MissingCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (var set in _missingKeys.Values) count += set.Count;
+                return count;
+            }
+        }
+
+        public static void ClearMissingKeys()
+        {
+            _missingKeys.Clear();
+            _reportedMissing.Clear();
+        }
+
         private static void ReportMissing(string module, string key)
         {
+            if (key == null) return;
+            module ??= "";
+            if (!_missingKeys.TryGetValue(module, out var set))
+                _missingKeys[module] = set = new HashSet<string>();
+            set.Add(key);
+
             string id = module + "/" + key;
             if (!_reportedMissing.Add(id)) return;
             Debug.LogWarning($"[LangManager] 缺少文本: 语言={CurrentLanguage.Value?.name ?? "未加载"} 模块={module} key={key}");

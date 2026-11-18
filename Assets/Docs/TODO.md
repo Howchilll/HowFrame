@@ -160,7 +160,9 @@
 - [ ] **[P1]** ConfigViewer：JSON / Excel / MessagePack 数据可视化检视器（类似 inspector）。
 - [ ] **[P1]** ReferenceGraph：资源 / 资产 / 脚本之间的引用图谱，排查循环依赖。
 - [ ] **[P2]** HotfixConsole：打 AB 包 → 拷贝到 StreamingAssets 工作流自动化。
-- [ ] **[P2]** LocalizationLivePreview：Editor 内拖语言下拉，实时预览 UI 文本。
+- [x] **[P2]** LocalizationLivePreview：运行时调试窗口「语言」页下拉切换语言，实时刷新 UI（2026-11-18）
+- [x] **[P1]** HowFrame Doctor：框架约定健康检查 + 命令行入口（2026-11-18）
+- [x] **[P1]** Runtime Debugger：初始化 / 资源缓存 / UI 栈 / 事件 / 缺失语言 key 一览（2026-11-18）
 - [ ] **[P2]** ProfilerShortcut：把 `Profiler.GetCounterValue` 关键指标绑到独立窗口，开发期持续观察。
 
 ---
@@ -195,6 +197,10 @@
   - 运行时：AssetAssistant 缓存归属 + Label 幂等加载 + 进度；HowInit 异常隔离与就绪信号；GameInit 去掉会死锁的 blockOnAwake；
     UIManager 导航栈 + 多语言刷新（PanelBase.WhenLanguageChanged）；LangManager 缺失 key 回退 + 切换通知；DataAssistant 读写选项统一 + 原子写入 + LoadConfigAsync。
   - 编辑器修复：ConfigConverter / LanguageConfiger 补菜单入口；KillAsset 删除前确认并移到回收站；Addressables 根目录前缀误匹配；FileMover 带扩展名路径被误当反射索引。
+  - 运行时修复（第二轮）：Updater 回调异常 / 回调中注销导致循环永久停止；UpdateHelper 不支持的 fps 被静默忽略；
+    AudioManager 卸载共享资源、去重标记泄漏、复用已销毁 AudioSource、音量 0 得 -∞；ThreadAssistant 线程异常静默死亡、Stop 后仍执行延迟回调；
+    UIManager 仅启用新输入系统时默认 EventSystem 每帧报错。
+  - 新增工具：Doctor 健康检查、Runtime Debugger 运行时调试窗口（含语言切换、缺失 key 追加到 Excel）；各模块只读状态 API。
 
 ---
 

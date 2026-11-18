@@ -5,6 +5,11 @@ using HowEnum;
 
 namespace HowFrame
 {
+    /// <summary>
+    /// 后台线程循环 / 延迟任务。
+    /// ⚠ 回调运行在后台线程：不能直接调用 Unity API（GameObject、Transform、UI 等），
+    ///   需要回到主线程时请用 ThreadHelper / 主线程派发；本类的 Start / Stop 也请只在主线程调用。
+    /// </summary>
     public static class ThreadAssistant
     {
         private static readonly Dictionary<string, ThreadHelper> _threads = new();
@@ -66,7 +71,7 @@ namespace HowFrame
             private readonly Action _onTick;
             private readonly Action _onStart;
             private readonly Action _onComplete;
-            private bool _running;
+            private volatile bool _running; // 跨线程读写
 
             // 循环任务构造
             public ThreadHelper(int intervalMillis, Action onTick, Action onStart = null)
@@ -98,18 +103,32 @@ namespace HowFrame
 
             private void RunLoop()
             {
-                _onStart?.Invoke();
-                while (_running)
+                try
                 {
-                    _onTick?.Invoke();
-                    Thread.Sleep(_intervalMillis);
+                    _onStart?.Invoke();
+                    while (_running)
+                    {
+                        _onTick?.Invoke();
+                        Thread.Sleep(_intervalMillis);
+                    }
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogException(e);
                 }
             }
 
             private void RunDelay()
             {
-                Thread.Sleep(_intervalMillis);
-                _onComplete?.Invoke();
+                try
+                {
+                    Thread.Sleep(_intervalMillis);
+                    if (_running) _onComplete?.Invoke(); // Stop() 后不再执行
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogException(e);
+                }
             }
         }
 

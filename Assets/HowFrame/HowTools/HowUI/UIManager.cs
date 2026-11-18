@@ -367,6 +367,16 @@ namespace HowFrame
             return Check(UIName.name);
         }
 
+        /// <summary>已创建的面板（名字、实例、是否显示），调试用</summary>
+        public static IEnumerable<(string name, PanelBase panel, bool visible)> Panels()
+        {
+            foreach (var pair in UIObjects)
+                yield return (pair.Key, pair.Value, pair.Value != null && pair.Value.gameObject.activeInHierarchy);
+        }
+
+        /// <summary>导航栈（栈底 → 栈顶）的面板名，调试用</summary>
+        public static IReadOnlyList<string> StackNames => NavStack.Select(entry => entry.Name).ToList();
+
         #endregion
 
         /// <summary>创建持久化 UIRoot、全局唯一的 EventSystem 和默认 0 层 Canvas；其余层在 Show 时创建。</summary>
@@ -453,7 +463,12 @@ namespace HowFrame
             else
             {
                 Debug.LogWarning("UIManager: 没有找到 EventSystem 预制体，改用默认设置创建");
+#if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+                // 只启用新输入系统时 StandaloneInputModule 会每帧报错
+                instance = new GameObject("EventSystem", typeof(EventSystem), typeof(UnityEngine.InputSystem.UI.InputSystemUIInputModule));
+#else
                 instance = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+#endif
                 instance.transform.SetParent(_uiRoot, false);
             }
             instance.name = "EventSystem";

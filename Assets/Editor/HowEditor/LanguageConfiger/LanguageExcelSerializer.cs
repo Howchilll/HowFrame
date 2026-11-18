@@ -202,6 +202,80 @@ public static class LanguageExcelSerializer
     }
 
     /// <summary>
+    /// 只追加：把表里还没有的 key 追加到末尾（content 为空），不删除、不修改已有行。
+    /// 文件不存在时新建。返回实际追加的条数；读写失败返回 -1（不会写坏原文件）。
+    /// </summary>
+    public static int AppendKeys(string excelPath, IEnumerable<string> keys)
+    {
+        try
+        {
+            XSSFWorkbook workbook;
+            ISheet sheet;
+            if (File.Exists(excelPath))
+            {
+                using (var fs = new FileStream(excelPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    workbook = new XSSFWorkbook(fs);
+                sheet = workbook.GetSheetAt(0) ?? workbook.CreateSheet("Sheet1");
+            }
+            else
+            {
+                string dir = Path.GetDirectoryName(excelPath);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                workbook = new XSSFWorkbook();
+                sheet = workbook.CreateSheet("Sheet1");
+            }
+
+            if (sheet.GetRow(0) == null)
+            {
+                var header = sheet.CreateRow(0);
+                header.CreateCell(0).SetCellValue("id");
+                header.CreateCell(1).SetCellValue("key");
+                header.CreateCell(2).SetCellValue("content");
+            }
+            if (sheet.GetRow(1) == null)
+            {
+                var typeRow = sheet.CreateRow(1);
+                typeRow.CreateCell(0).SetCellValue("int");
+                typeRow.CreateCell(1).SetCellValue("string");
+                typeRow.CreateCell(2).SetCellValue("string");
+            }
+
+            var existing = new HashSet<string>();
+            long maxId = 0;
+            for (int rowIndex = 2; rowIndex <= sheet.LastRowNum; rowIndex++)
+            {
+                var row = sheet.GetRow(rowIndex);
+                if (row == null) continue;
+                string key = GetCellValueAsString(row.GetCell(1));
+                if (!string.IsNullOrEmpty(key)) existing.Add(key);
+                if (long.TryParse(GetCellValueAsString(row.GetCell(0)), out var id) && id > maxId) maxId = id;
+            }
+
+            int nextRow = System.Math.Max(2, sheet.LastRowNum + 1);
+            int added = 0;
+            foreach (var key in keys.Where(k => !string.IsNullOrEmpty(k)).Distinct().OrderBy(k => k))
+            {
+                if (!existing.Add(key)) continue;
+                var row = sheet.CreateRow(nextRow++);
+                row.CreateCell(0).SetCellValue(++maxId);
+                row.CreateCell(1).SetCellValue(key);
+                row.CreateCell(2).SetCellValue("");
+                added++;
+            }
+
+            if (added == 0) return 0;
+            using (var fs = new FileStream(excelPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                workbook.Write(fs);
+            return added;
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"追加语言 key 失败（文件可能正在被 Excel 打开）: {excelPath}\n{ex.Message}");
+            return -1;
+        }
+    }
+
+    /// <summary>
     /// 将 Excel 数据转换为 JSON 格式的字典
     /// </summary>
     public static Dictionary<string, string> ExcelToJsonDict(string excelPath)

@@ -21,6 +21,14 @@ public static class HowInit
       /// <summary>初始化过程中 Wake 失败的模块数量</summary>
       public static int FailedModules { get; private set; }
 
+      private static readonly System.Collections.Generic.List<string> _failedModuleNames = new();
+
+      /// <summary>Wake 失败的模块名（调试窗口用）</summary>
+      public static System.Collections.Generic.IReadOnlyList<string> FailedModuleNames => _failedModuleNames;
+
+      /// <summary>初始化是否已开始（含进行中）</summary>
+      public static bool IsStarted => _initTask != null;
+
       /// <summary>初始化完成时触发（只触发一次）。已就绪后再订阅请用 WhenReady。</summary>
       public static event Action OnReady;
 
@@ -49,6 +57,7 @@ public static class HowInit
             await AssetAssistant.LoadLabelsAsync(InstanceLabel);
 
             FailedModules = 0;
+            _failedModuleNames.Clear();
             // 基础设施优先，UI / 输入等依赖资源的模块放后面
             WakeSafe(nameof(DebugAssistant), DebugAssistant.Wake);
             WakeSafe(nameof(TypeAssistant), TypeAssistant.Wake);
@@ -88,6 +97,7 @@ public static class HowInit
             catch (Exception e)
             {
                   FailedModules++;
+                  _failedModuleNames.Add(moduleName);
                   Debug.LogError($"[HowInit] {moduleName}.Wake 失败: {e}");
             }
       }

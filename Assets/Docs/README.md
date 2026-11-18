@@ -206,6 +206,7 @@ public abstract class PanelBase : MonoBehaviour
 - 以 `LangTypeEnum`（语种）× `LangModuleEnum`（模块）二维键加载 JSON。
 - 文件命名约定：`{LangName}_{ModuleName}_Lang.json`，存放于 `StreamingAssets/{GlobalPath.LangPath}/`（默认 `StreamingAssets/Languages/`）。
 - 提供 `GetLangContent(Module, key)` / `GetLangContent(key)` / `TryGetLangContent(...)`；缺失的 key 返回 key 本身并只警告一次。
+- 运行中缺失的 key 记录在 `MissingKeys`（按模块，切换语言不清空），可在运行时调试窗口里一键追加到语言 Excel。
 - `CurrentLanguage`（`Ref`，可订阅）与 `OnLanguageChanged` 事件；切换时先整体加载再替换，不会读到一半新一半旧。
 - 由 [LanguageConfiger](../Editor/HowEditor/LanguageConfiger)（菜单 `Tools/HowFrame/Language Configer`）通过 Excel 序列化生成 JSON。
 
@@ -228,9 +229,10 @@ public abstract class PanelBase : MonoBehaviour
 位置：[AudioManager.cs](../HowFrame/HowTools/HowAudio/AudioManager.cs)
 
 - 区分 `Music` / `Sound` 两类通道，使用 `AudioMixer` 控制音量。
-- 音乐支持淡出结束、音效池化复用。
-- 音效内置 LRU 缓存（`MaxSoundCache = 50`），按频率衰减清理。
-- 同名短时间重复播放会被 `SoundCheck` 去重。
+- 音乐支持淡出结束（按真实时间，暂停时也能淡出）、`IsMusicPlaying(key)`；音效池化复用，挂点物体被销毁时自动跳过已销毁的 AudioSource。
+- 音频资源直接取 `AssetAssistant` 的 Label 缓存，生命周期由 AssetAssistant 管理（AudioManager 不再自行卸载，避免把共享资源卸掉）。
+- 同一音效 + 同一挂点在延迟期间重复触发会被去重；加载失败不会留下去重标记。
+- 音量 0 时按 -80dB 处理（不会出现 Log10(0) = -∞）。
 
 ---
 
@@ -266,7 +268,8 @@ public abstract class PanelBase : MonoBehaviour
 位置：[HowUpdate](../HowFrame/HowTools/HowUpdate)
 
 - `UpdateAssistant` / `UpdateHelper`：注册/注销每帧回调，无需自己写 Mono。
-- `Updater`：核心驱动器。
+- `Updater`：核心驱动器（基础 60 帧节拍）。遍历快照 + 每个回调单独 try/catch：回调里 Dispose / 新建、或某个回调抛异常，都不会让整个循环停掉。
+- `new UpdateHelper(fps)`：fps 取 1~60 任意值，按 `60 / fps` 取整为触发间隔（20 → 每 3 帧），超出范围会警告并限制。
 
 ### 4.13 HowType —— 运行时反射
 
@@ -286,7 +289,8 @@ public abstract class PanelBase : MonoBehaviour
 
 位置：[HowThread](../HowFrame/HowTools/HowThread)
 
-- `ThreadAssistant` / `ThreadHelper`：把异步回调投递回主线程。
+- `ThreadAssistant`：按名字管理后台线程的循环任务（`StartLoop`）与延迟任务（`DelayInvoke`），`Stop` 后不再执行回调。
+- ⚠ 回调运行在**后台线程**，不能直接调用 Unity API；单个回调异常只记录日志，不会让线程静默死掉。
 
 ### 4.16 HowJObj —— Json 包装
 
@@ -362,6 +366,8 @@ public abstract class PanelBase : MonoBehaviour
 | [FileMover](../Editor/HowEditor/FileMover) | （已隐藏） | 批量移动/删除文件，支持 `类名.字段名` 引用路径常量 |
 | [KillAsset](../Editor/HowEditor/KillAsset) | `Tools/KillAsset` | 清理目标目录中未被引用的资源（删除前确认，移到系统回收站） |
 | [AddressableBuilder](../Editor/HowEditor/AddressableBuilder) | 自动 | 收录根目录下的资源自动加入 Addressables，按一级子目录分组 |
+| [Doctor](../Editor/HowEditor/Doctor) | `Tools/HowFrame/Doctor (健康检查)` | 一键检查框架约定，见 5.4 |
+| [Runtime Debugger](../Editor/HowEditor/DebugWindow) | `Tools/HowFrame/Runtime Debugger (运行时调试)` | Play 模式下查看框架运行状态，见 5.5 |
 
 ### 5.1 AutoUI 自动绑定窗口
 
@@ -392,7 +398,34 @@ public abstract class PanelBase : MonoBehaviour
 Unity.exe -batchmode -projectPath <工程> -runTests -testPlatform EditMode -assemblyNames HowFrame.Tests.Editor -testResults results.xml
 ```
 
-覆盖：配置路径解析与内置文件定位、PathEditor、DataAssistant 读写 / 覆盖 / 删除、LangManager 缺失 key 回退、EnumKey 转换、UIManager 空栈 Back。
+覆盖：配置路径解析与内置文件定位、PathEditor、DataAssistant 读写 / 覆盖 / 删除、LangManager 缺失 key 回退与记录、EnumKey 转换、UIManager 空栈 Back、
+健康检查各项（枚举同步含分组、语言文件、资源重名、Instance 资源）、语言 Excel 只追加写入。
+
+### 5.4 Doctor（健康检查）
+
+位置：[Editor/HowEditor/Doctor](../Editor/HowEditor/Doctor)。检查项：
+
+| 类别 | 检查内容 |
+| --- | --- |
+| 路径设置 | HowFrame 设置里的各目录是否存在 |
+| Python | 能否找到 Python 解释器 |
+| Instance 资源 | `Canvas` / `HowInputActions`（必需）、`AudioMixer` / `EventSystem`（可选）是否在 Addressables 中并带 `Instance` 标签 |
+| UI 预设体 | `UINameEnum` 每一项是否有同名可寻址 `.prefab`、是否有 Label、是否带 PanelBase（或有同名 PanelBase 子类） |
+| 资源重名 | 共享 Label 的同名资源（运行时缓存按名字存，只能取到其中一个） |
+| 语言文件 | 每个 语种 × 模块 的 JSON 是否存在，同一模块各语种 key 是否一致 |
+| 枚举同步 | 枚举 JSON 与生成的 `.cs` 是否一致（改了 JSON 忘了重新生成） |
+
+命令行 / CI：`Unity.exe -batchmode -quit -projectPath <工程> -executeMethod HowFrameDoctor.RunFromCommandLine`，有错误时退出码为 1。
+
+### 5.5 Runtime Debugger（运行时调试）
+
+位置：[Editor/HowEditor/DebugWindow](../Editor/HowEditor/DebugWindow)。Play 模式下每 0.5 秒刷新：
+
+- **概览**：HowInit / GameInit 状态与进度、Wake 失败的模块、各项统计。
+- **语言**：下拉切换语言；运行中缺失的 key 列表，可「追加到 Excel」（追加到所有语种对应模块表的末尾，content 留空，不改动已有行）或复制。
+- **资源**：已加载 / 加载中的 Label，缓存资源（名字、类型、归属 Label），可搜索、定位。
+- **UI**：导航栈（Back / 清空）、已创建面板（显示 / 隐藏 / 定位），一键 Show `UINameEnum` 中的面板。
+- **事件**：`EventAssistant` 全局事件、订阅者列表，可手动触发。
 
 ---
 

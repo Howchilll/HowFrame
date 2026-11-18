@@ -42,6 +42,7 @@ namespace HowFrame
         // ==== 对象版注册列表 ====
         private readonly List<UpdateHelper> _orderHelpers = new();
         private readonly List<UpdateHelper> _systemHelpers = new();
+        private readonly List<UpdateHelper> _orderSnapshot = new();
 
         // ==== 静态回调 ====
         private Action _staticUnityUpdate;
@@ -107,19 +108,27 @@ namespace HowFrame
                     var helpers = new List<UpdateHelper>(_systemHelpers);
                     var systemStatic = _staticSystemUpdate;
 
+                    int frame = _frameCount;
                     _ = Task.Run(() =>
                     {
                         try
                         {
+                            // 单个回调异常不影响同一帧的其他回调
                             foreach (var h in helpers)
-                                if (h != null && h.IsActiveForCurrentFrame(_frameCount))
-                                    h.InvokeInternal();
+                            {
+                                if (h == null || !h.IsActiveForCurrentFrame(frame)) continue;
+                                try { h.InvokeInternal(); }
+                                catch (Exception e) { Debug.LogException(e); }
+                            }
 
-                            systemStatic?.Invoke();
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogException(e);
+                            if (systemStatic != null)
+                            {
+                                foreach (Action callback in systemStatic.GetInvocationList())
+                                {
+                                    try { callback(); }
+                                    catch (Exception e) { Debug.LogException(e); }
+                                }
+                            }
                         }
                         finally
                         {
@@ -128,12 +137,27 @@ namespace HowFrame
                     });
                 }
 
-                // Unity 主线程执行
-                foreach (var h in _orderHelpers)
-                    if (h != null && h.IsActiveForCurrentFrame(_frameCount))
-                        h.InvokeInternal();
+                // Unity 主线程执行：
+                // - 遍历快照：回调里 Dispose / 新建 UpdateHelper 不会触发"集合被修改"异常
+                // - 每个回调单独 try/catch：协程内未捕获的异常会让整个循环永久停止
+                _orderSnapshot.Clear();
+                _orderSnapshot.AddRange(_orderHelpers);
+                foreach (var h in _orderSnapshot)
+                {
+                    if (h == null || !h.IsActiveForCurrentFrame(_frameCount)) continue;
+                    try { h.InvokeInternal(); }
+                    catch (Exception e) { Debug.LogException(e); }
+                }
 
-                _staticUnityUpdate?.Invoke();
+                var unityStatic = _staticUnityUpdate;
+                if (unityStatic != null)
+                {
+                    foreach (Action callback in unityStatic.GetInvocationList())
+                    {
+                        try { callback(); }
+                        catch (Exception e) { Debug.LogException(e); }
+                    }
+                }
 
                 yield return wait;
             }

@@ -2,53 +2,56 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using UnityEngine;
-using Cysharp.Threading.Tasks;
 using UnityEngine.Audio;
 using Object = UnityEngine.Object;
 using Random = UnityEngine.Random;
 
 namespace HowFrame
 {
+    /// <summary>
+    /// 音频管理：Music（循环、可淡出）/ Sound（一次性、池化 AudioSource）两类通道，经 AudioMixer 控制音量。
+    /// 音频资源来自 AssetAssistant 的 Addressables 缓存，生命周期由 AssetAssistant 管理（这里不卸载资源）。
+    /// </summary>
     public static class AudioManager
     {
         private static GameObject _audioManagerObject;
         private static GameObject _audioPool;
+        private static FakeMono _runner;
 
         private static readonly Dictionary<string, AudioSource> MusicSources = new Dictionary<string, AudioSource>();
-        private static readonly Dictionary<string, AudioClip> MusicClips = new Dictionary<string, AudioClip>();
-
-        private static readonly Dictionary<string, AudioClip> SoundClips = new Dictionary<string, AudioClip>();
-        private static readonly Dictionary<string, int> SoundFreq = new Dictionary<string, int>();
-        private static readonly List<string> LruList = new List<string>();
         private static readonly Queue<AudioSource> SoundSources = new Queue<AudioSource>();
+        // 防止同一音效（同一挂点）在同一帧 / 延迟期间被重复触发
         private static readonly HashSet<string> SoundCheck = new HashSet<string>();
-
-        private static float _lastCleanupTime = 0;
 
         private static AudioMixer _mixer;
         private static AudioMixerGroup _musicGroup;
         private static AudioMixerGroup _soundGroup;
 
-        private const int MaxSoundCache = 50; // 最大缓存音效数量
+        // AudioMixer 音量下限（-80dB，近似静音），避免 Log10(0) 得到负无穷
+        private const float MinLinearVolume = 0.0001f;
 
-        private static void Init()
+        private static bool EnsureInit()
         {
-            if (_audioManagerObject != null) return;
+            if (_audioManagerObject != null) return true;
 
             _audioManagerObject = new GameObject("AudioManager");
             _audioPool = new GameObject("AudioPool");
             Object.DontDestroyOnLoad(_audioManagerObject);
             Object.DontDestroyOnLoad(_audioPool);
 
-            _audioManagerObject.AddComponent<FakeMono>();
-            _mixer = AssetAssistant.AddressableGet<AudioMixer>("AudioMixer");
+            _runner = _audioManagerObject.AddComponent<FakeMono>();
+            AssetAssistant.TryAddressableGet("AudioMixer", out _mixer);
             if (_mixer != null)
             {
                 _musicGroup = _mixer.FindMatchingGroups("Music").FirstOrDefault();
                 _soundGroup = _mixer.FindMatchingGroups("Sound").FirstOrDefault();
             }
+            else
+            {
+                Debug.LogWarning("AudioManager: 没有找到 AudioMixer（Instance 标签），音量控制不可用");
+            }
+            return true;
         }
 
         #region Music
@@ -58,23 +61,16 @@ namespace HowFrame
         {
             try
             {
-                if (MusicSources.ContainsKey(fileName)) return;
+                EnsureInit();
+                if (IsMusicPlaying(fileName)) return;
 
-                AudioClip clip;
-                if (!MusicClips.TryGetValue(fileName, out clip))
-                {
-                    clip = SafeLoad<AudioClip>(fileName);
-                    if (!clip) return;
-                    MusicClips[fileName] = clip;
-                }
+                AudioClip clip = SafeLoad<AudioClip>(fileName);
+                if (!clip) return;
 
                 AudioSource source = GetSoundSource();
                 SetupAudioSource(source, clip, father, volume, minDis, maxDis, true, true);
-
                 MusicSources[fileName] = source;
-
-                _audioManagerObject.GetComponent<FakeMono>()
-                    .StartCoroutine(PlayMusicCoroutine(delay, source));
+                _runner.StartCoroutine(PlayMusicCoroutine(delay, source));
             }
             catch (Exception ex)
             {
@@ -85,62 +81,82 @@ namespace HowFrame
         /// <summary>播放已经加载好的音乐（资源缓存按资源名存，按地址单独加载的音乐走这里）</summary>
         public static void AddMusic(string key, AudioClip clip, float volume)
         {
-            if (!clip || MusicSources.ContainsKey(key)) return;
+            if (!clip) return;
+            EnsureInit();
+            if (IsMusicPlaying(key)) return;
 
-            MusicClips[key] = clip;
             AudioSource source = GetSoundSource();
             SetupAudioSource(source, clip, null, volume, 1, 10, true, true);
             MusicSources[key] = source;
             source.Play();
         }
 
-        public static void EndMusic(string fileName)
+        /// <summary>淡出并停止音乐</summary>
+        public static void EndMusic(string fileName, float fadeTime = 2f)
         {
-            if (!MusicSources.TryGetValue(fileName, out var source) || source == null) return;
-
-            _audioManagerObject.GetComponent<FakeMono>()
-                .StartCoroutine(EndMusicCoroutine(fileName, source));
+            if (!MusicSources.TryGetValue(fileName, out var source)) return;
+            if (source == null)
+            {
+                MusicSources.Remove(fileName); // 挂点物体已销毁，AudioSource 跟着没了
+                return;
+            }
+            EnsureInit();
+            _runner.StartCoroutine(EndMusicCoroutine(fileName, source, fadeTime));
         }
 
+        public static bool IsMusicPlaying(string key)
+        {
+            if (!MusicSources.TryGetValue(key, out var source)) return false;
+            if (source != null) return true;
+            MusicSources.Remove(key);
+            return false;
+        }
+
+        /// <summary>音乐总音量（0~1，经 AudioMixer 的 MusicVol 参数）</summary>
         public static void ChangeMusicVolume(float vol)
         {
             if (_mixer == null) return;
-            _mixer.SetFloat("MusicVol", Mathf.Log10(Mathf.Clamp01(vol)) * 20);
+            _mixer.SetFloat("MusicVol", LinearToDecibel(vol));
         }
 
+        /// <summary>音效总音量（0~1，经 AudioMixer 的 SoundVol 参数）</summary>
         public static void ChangeSoundVolume(float vol)
         {
             if (_mixer == null) return;
-            _mixer.SetFloat("SoundVol", Mathf.Log10(Mathf.Clamp01(vol)) * 20);
+            _mixer.SetFloat("SoundVol", LinearToDecibel(vol));
+        }
+
+        private static float LinearToDecibel(float vol)
+        {
+            return Mathf.Log10(Mathf.Clamp(vol, MinLinearVolume, 1f)) * 20f;
         }
 
         private static IEnumerator PlayMusicCoroutine(float delay, AudioSource source)
         {
-            yield return new WaitForSeconds(delay);
-            source.Play();
+            if (delay > 0) yield return new WaitForSeconds(delay);
+            if (source != null) source.Play();
         }
 
-        private static IEnumerator EndMusicCoroutine(string fileName, AudioSource source, float fadeTime = 2f)
+        private static IEnumerator EndMusicCoroutine(string fileName, AudioSource source, float fadeTime)
         {
             float startVol = source.volume;
             float elapsed = 0f;
 
             while (elapsed < fadeTime)
             {
+                if (source == null) break;
                 source.volume = Mathf.Lerp(startVol, 0f, elapsed / fadeTime);
-                elapsed += Time.deltaTime;
+                elapsed += Time.unscaledDeltaTime;
                 yield return null;
             }
 
-            source.Stop();
-            ReturnSourceToPool(source);
-
-            MusicSources.Remove(fileName);
-
-            if (MusicClips.TryGetValue(fileName, out var clip))
+            // 淡出期间同名音乐可能已被重新播放，只移除仍指向这个 AudioSource 的记录
+            if (MusicSources.TryGetValue(fileName, out var current) && current == source)
+                MusicSources.Remove(fileName);
+            if (source != null)
             {
-              
-                MusicClips.Remove(fileName);
+                source.Stop();
+                ReturnSourceToPool(source);
             }
         }
 
@@ -148,25 +164,24 @@ namespace HowFrame
 
         #region Sound
 
+        /// <param name="types">变体数量：大于 1 时随机播放 fileName1 ~ fileNameN</param>
         public static void AddSound(string fileName, float delayTime = 0, float volume = 1, int types = 1,
             GameObject father = null, float minDis = 1, float maxDis = 10)
         {
             try
             {
-                string tag = fileName + (father ? father.name : "null");
+                EnsureInit();
+                string tag = fileName + (father ? father.GetInstanceID().ToString() : "null");
                 if (SoundCheck.Contains(tag)) return;
-                SoundCheck.Add(tag);
 
                 string soundName = types > 1 ? fileName + Random.Range(1, types + 1) : fileName;
+                AudioClip clip = SafeLoad<AudioClip>(soundName);
+                if (!clip) return; // 加载失败时不能留下去重标记，否则这个音效以后再也播不出来
 
-                AudioClip clip = GetSoundClip(soundName);
-                if (!clip) return;
-
+                SoundCheck.Add(tag);
                 AudioSource source = GetSoundSource();
                 SetupAudioSource(source, clip, father, volume, minDis, maxDis, false, false);
-
-                _audioManagerObject.GetComponent<FakeMono>()
-                    .StartCoroutine(PlaySoundCoroutine(delayTime, source, tag));
+                _runner.StartCoroutine(PlaySoundCoroutine(delayTime, source, tag));
             }
             catch (Exception ex)
             {
@@ -177,76 +192,23 @@ namespace HowFrame
         private static IEnumerator PlaySoundCoroutine(float delayTime, AudioSource source, string tag)
         {
             yield return new WaitForSeconds(delayTime);
-
             SoundCheck.Remove(tag);
+
+            if (source == null) yield break; // 挂点物体在延迟期间被销毁
             source.Play();
 
-            yield return new WaitForSeconds(source.clip.length + 0.1f);
+            // 按真实时间等待：暂停（timeScale = 0）时音效仍在播放，也要能按时回收
+            float length = source.clip.length / Mathf.Max(0.01f, Mathf.Abs(source.pitch));
+            yield return new WaitForSecondsRealtime(length + 0.1f);
 
+            if (source == null) yield break; // 播放期间挂点物体被销毁，AudioSource 跟着销毁
             source.Stop();
             ReturnSourceToPool(source);
-        }
-
-        private static AudioClip GetSoundClip(string name)
-        {
-            if (Time.time - _lastCleanupTime > 30)
-            {
-                _lastCleanupTime = Time.time;
-                CleanupSoundCache();
-            }
-
-            if (!SoundClips.TryGetValue(name, out var clip))
-            {
-                clip = SafeLoad<AudioClip>(name);
-                if (!clip) return null;
-
-                SoundClips[name] = clip;
-                SoundFreq[name] = 1;
-                LruList.Add(name);
-
-                if (SoundClips.Count > MaxSoundCache)
-                    CleanupSoundCache();
-            }
-            else
-            {
-                SoundFreq[name]++;
-                LruList.Remove(name);
-                LruList.Add(name);
-            }
-
-            return clip;
         }
 
         #endregion
 
         #region Helpers
-
-        private static void CleanupSoundCache()
-        {
-            while (SoundClips.Count > MaxSoundCache)
-            {
-                string oldest = LruList[0];
-                LruList.RemoveAt(0);
-                SoundFreq.Remove(oldest);
-                Resources.UnloadAsset(SoundClips[oldest]);
-                SoundClips.Remove(oldest);
-            }
-
-            foreach (var key in SoundFreq.Keys.ToList())
-            {
-                SoundFreq[key] -= 2;
-                if (SoundFreq[key] <= 0)
-                {
-                    LruList.Remove(key);
-                    SoundFreq.Remove(key);
-                    if (SoundClips.TryGetValue(key, out var clip))
-                    {
-                        Resources.UnloadAsset(clip);
-                        SoundClips.Remove(key);
-                    }
-                }
-            }
-        }
 
         private static void ReturnSourceToPool(AudioSource source)
         {
@@ -258,7 +220,12 @@ namespace HowFrame
 
         private static AudioSource GetSoundSource()
         {
-            if (SoundSources.Count > 0) return SoundSources.Dequeue();
+            // 跳过已被销毁的（例如曾挂在被销毁物体下）
+            while (SoundSources.Count > 0)
+            {
+                var pooled = SoundSources.Dequeue();
+                if (pooled != null) return pooled;
+            }
 
             var go = new GameObject("PooledAudioSource");
             go.transform.SetParent(_audioPool.transform);
@@ -272,49 +239,43 @@ namespace HowFrame
             source.loop = loop;
             source.playOnAwake = false;
             source.volume = Mathf.Clamp01(volume);
+            source.pitch = 1f;
             source.outputAudioMixerGroup = isMusic ? _musicGroup : _soundGroup;
 
             source.gameObject.SetActive(true);
             source.transform.SetParent(father ? father.transform : _audioManagerObject.transform);
             source.transform.localPosition = Vector3.zero;
 
+            source.rolloffMode = AudioRolloffMode.Logarithmic;
             if (father != null)
             {
                 source.spatialBlend = 1f;
-                source.rolloffMode = AudioRolloffMode.Logarithmic;
                 source.minDistance = minDis;
                 source.maxDistance = maxDis;
             }
             else
             {
                 source.spatialBlend = 0f;
-                source.rolloffMode = AudioRolloffMode.Logarithmic;
                 source.minDistance = 1f;
                 source.maxDistance = 500f;
             }
         }
 
-        private static T SafeLoad<T>(string path) where T : Object
+        private static T SafeLoad<T>(string name) where T : Object
         {
-            try
-            {
-                return AssetAssistant.AddressableGet<T>(path);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"Audio load failed: {path}, {ex}");
-                return null;
-            }
+            if (AssetAssistant.TryAddressableGet<T>(name, out var asset)) return asset;
+            Debug.LogWarning($"AudioManager: 没有找到音频 {name}（需在 Addressables 中并已按 Label 加载）");
+            return null;
         }
 
         private class FakeMono : MonoBehaviour { }
 
         /// <summary>
-        /// 初始化 AudioManager（延迟初始化，在资源加载完成后调用）
+        /// 初始化 AudioManager（延迟初始化，在资源加载完成后调用）。未调用时首次播放也会自动初始化。
         /// </summary>
         public static void Wake()
         {
-            Init();
+            EnsureInit();
         }
         #endregion
     }

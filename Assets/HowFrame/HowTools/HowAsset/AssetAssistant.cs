@@ -129,6 +129,29 @@ namespace HowFrame
         /// <summary>某个 Label 是否已加载完成（已在缓存中）</summary>
         public static bool IsLabelLoaded(string label) => _handlesByLabel.ContainsKey(label);
 
+        // ---- 只读状态（调试窗口 / 健康检查用） ----
+
+        /// <summary>已加载完成的 Label</summary>
+        public static IEnumerable<string> LoadedLabels => _handlesByLabel.Keys;
+
+        /// <summary>正在加载中的 Label</summary>
+        public static IEnumerable<string> LoadingLabels => _loadingLabels.Keys;
+
+        /// <summary>缓存中的资源数量</summary>
+        public static int CachedCount => _cache.Count;
+
+        /// <summary>遍历缓存：资源名、资源、归属 Label</summary>
+        public static IEnumerable<(string key, Object asset, IReadOnlyCollection<string> labels)> CacheEntries()
+        {
+            foreach (var pair in _cache)
+            {
+                IReadOnlyCollection<string> owners = _keyOwners.TryGetValue(pair.Key, out var set)
+                    ? set
+                    : (IReadOnlyCollection<string>)Array.Empty<string>();
+                yield return (pair.Key, pair.Value, owners);
+            }
+        }
+
         /// <summary>按 Label 批量加载并缓存。已加载 / 正在加载的 Label 不会重复加载。</summary>
         public static Task LoadLabelsAsync(Action onComplete = null, params string[] labels)
         {
