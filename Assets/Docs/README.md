@@ -292,6 +292,22 @@ public abstract class PanelBase : MonoBehaviour
 - `ThreadAssistant`：按名字管理后台线程的循环任务（`StartLoop`）与延迟任务（`DelayInvoke`），`Stop` 后不再执行回调。
 - ⚠ 回调运行在**后台线程**，不能直接调用 Unity API；单个回调异常只记录日志，不会让线程静默死掉。
 
+### 4.15.1 HowConsole —— 运行时命令控制台
+
+位置：[HowConsole](../HowFrame/HowTools/HowConsole)
+
+- 游戏内按 `` ` `` 或 `F1` 打开（IMGUI，不需要预设体）；Enter 执行，↑↓ 历史，Tab 补全，Esc 关闭。默认只在编辑器 / Development Build 启用（`HowConsole.Enabled`）。
+- 静态方法加特性即成为命令，参数自动转换（string / int / long / float / double / bool / 枚举，支持默认值，最后一个 string 参数吃掉剩余文本）：
+
+```csharp
+[HowCommand("gold.add", "加金币")]
+static void AddGold(int amount, bool notify = true) { ... }
+```
+
+- 也可以 `HowConsole.Register(name, desc, args => ...)` 手动注册；`HowConsole.Execute("gold.add 100")` 可直接在代码里调用。
+- 内置命令：`help` `clear` `history` `timescale` `lang` `lang.missing` `ui.show` `ui.hide` `ui.back` `ui.list` `event` `assets` `fps`。
+- 同时收集 Unity 日志（`CaptureUnityLog`），真机上不连编辑器也能看报错。
+
 ### 4.16 HowJObj —— Json 包装
 
 位置：[JObjAssistant.cs](../HowFrame/HowTools/HowJObj/JObjAssistant.cs)
@@ -368,6 +384,8 @@ public abstract class PanelBase : MonoBehaviour
 | [AddressableBuilder](../Editor/HowEditor/AddressableBuilder) | 自动 | 收录根目录下的资源自动加入 Addressables，按一级子目录分组 |
 | [Doctor](../Editor/HowEditor/Doctor) | `Tools/HowFrame/Doctor (健康检查)` | 一键检查框架约定，见 5.4 |
 | [Runtime Debugger](../Editor/HowEditor/DebugWindow) | `Tools/HowFrame/Runtime Debugger (运行时调试)` | Play 模式下查看框架运行状态，见 5.5 |
+| [Missing References](../Editor/HowEditor/MissingRefs) | `Tools/HowFrame/Missing References (丢失引用)` | 扫描 Prefab / ScriptableObject / 场景中丢失的脚本和指向已删除资源的引用，可一键移除丢失脚本 |
+| [PlayFromBoot](../Editor/HowEditor/PlayFromBoot) | `Tools/HowFrame/从启动场景运行`（开关）、`运行启动场景`（Ctrl+Alt+P） | 在任意场景点 Play 都先进入放 GameInit 的启动场景，退出后回到原场景；启动场景在 HowFrame 设置中配置 |
 
 ### 5.1 AutoUI 自动绑定窗口
 

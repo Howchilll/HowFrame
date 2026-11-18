@@ -82,6 +82,9 @@ public class HowFrameSettingsProvider : SettingsProvider
         Section("Addressables");
         DirField("addressableRootDir", "自动收录根目录");
 
+        Section("启动场景（从启动场景运行）");
+        BootSceneField();
+
         Section("KillAsset（未引用资源清理）");
         DirField("killAssetTargetDir", "清理目标目录");
         Prop("killAssetEntryDirs", "依赖扫描起点目录");
@@ -89,7 +92,11 @@ public class HowFrameSettingsProvider : SettingsProvider
 
         bool changed = EditorGUI.EndChangeCheck();
         _so.ApplyModifiedPropertiesWithoutUndo();
-        if (changed) HowFrameSettings.instance.Save();
+        if (changed)
+        {
+            HowFrameSettings.instance.Save();
+            HowFramePlayFromBoot.Refresh();
+        }
 
         GUILayout.Space(12);
         if (GUILayout.Button("恢复默认值", GUILayout.Width(120)) &&
@@ -113,6 +120,16 @@ public class HowFrameSettingsProvider : SettingsProvider
     private void Prop(string name, string label)
     {
         EditorGUILayout.PropertyField(_so.FindProperty(name), new GUIContent(label), true);
+    }
+
+    private void BootSceneField()
+    {
+        var prop = _so.FindProperty("bootScene");
+        var current = string.IsNullOrEmpty(prop.stringValue) ? null : AssetDatabase.LoadAssetAtPath<SceneAsset>(prop.stringValue);
+        var picked = (SceneAsset)EditorGUILayout.ObjectField(new GUIContent("启动场景", prop.tooltip), current, typeof(SceneAsset), false);
+        if (picked != current) prop.stringValue = picked == null ? "" : AssetDatabase.GetAssetPath(picked);
+        if (picked == null)
+            ReadOnlyPath("　└ 当前使用 Build Settings 第一个场景", HowFramePlayFromBoot.BootScenePath ?? "（Build Settings 中没有启用的场景）");
     }
 
     private void DirField(string name, string label, bool allowEmpty = false)

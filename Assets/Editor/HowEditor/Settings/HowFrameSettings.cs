@@ -73,6 +73,10 @@ public class HowFrameSettings : ScriptableSingleton<HowFrameSettings>
     [Tooltip("该目录下的资源会被自动加入 Addressables，按一级子目录分组")]
     public string addressableRootDir = Defaults.AddressableRootDir;
 
+    // ---------------- 启动场景 ----------------
+    [Tooltip("「从启动场景运行」使用的场景（放 GameInit 的场景）。留空则使用 Build Settings 中第一个启用的场景")]
+    public string bootScene = "";
+
     // ---------------- KillAsset ----------------
     [Tooltip("依赖扫描的起点目录；为空则扫描整个 Assets")]
     public List<string> killAssetEntryDirs = Defaults.KillAssetEntryDirs();
@@ -110,6 +114,7 @@ public class HowFrameSettings : ScriptableSingleton<HowFrameSettings>
         uiScriptDir = Defaults.UIScriptDir;
         autoUITemplateDir = "";
         addressableRootDir = Defaults.AddressableRootDir;
+        bootScene = "";
         killAssetEntryDirs = Defaults.KillAssetEntryDirs();
         killAssetTargetDir = Defaults.KillAssetTargetDir;
         killAssetIgnoreRules = Defaults.KillAssetIgnoreRules();

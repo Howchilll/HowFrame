@@ -201,6 +201,8 @@
     AudioManager 卸载共享资源、去重标记泄漏、复用已销毁 AudioSource、音量 0 得 -∞；ThreadAssistant 线程异常静默死亡、Stop 后仍执行延迟回调；
     UIManager 仅启用新输入系统时默认 EventSystem 每帧报错。
   - 新增工具：Doctor 健康检查、Runtime Debugger 运行时调试窗口（含语言切换、缺失 key 追加到 Excel）；各模块只读状态 API。
+  - 新增工具（第二批）：HowConsole 运行时命令控制台（[HowCommand] 特性注册）、Missing References 丢失引用扫描、从启动场景运行。
+  - UINameEnum 改为本仓库实际存在的面板（同步回 IndiGame 时不要覆盖它的 UINameEnum）。
 
 ---
 

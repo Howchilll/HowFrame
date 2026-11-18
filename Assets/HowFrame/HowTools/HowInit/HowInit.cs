@@ -71,6 +71,7 @@ public static class HowInit
             WakeSafe(nameof(InputAssistant), InputAssistant.Wake);
             WakeSafe(nameof(SceneLoadAssistant), SceneLoadAssistant.Wake);
             WakeSafe(nameof(UIManager), UIManager.Wake);
+            WakeSafe(nameof(HowConsole), HowConsole.Wake);
 
             IsReady = true;
             if (FailedModules > 0)
