@@ -38,13 +38,13 @@ public static class HowFrameDoctor
         public override string ToString() => $"[{Level}] {Category}: {Message}";
     }
 
-    // 框架运行时按资源名取用的 Instance 资源：名字 → 是否必需
-    internal static readonly (string name, bool required, string usage)[] InstanceAssets =
+    // 框架运行时按资源名取用的 Instance 资源：名字、是否必需、用途、缺失时框架的兜底（有兜底则缺失不算问题）
+    internal static readonly (string name, bool required, string usage, string fallback)[] InstanceAssets =
     {
-        ("Canvas", true, "UIManager 创建各层 Canvas"),
-        ("HowInputActions", true, "InputAssistant 输入"),
-        ("AudioMixer", false, "AudioManager 音量控制"),
-        ("EventSystem", false, "UIManager（缺失时自动创建默认 EventSystem）"),
+        ("Canvas", true, "UIManager 创建各层 Canvas", null),
+        ("HowInputActions", true, "InputAssistant 输入", null),
+        ("AudioMixer", false, "AudioManager 音量控制", null),
+        ("EventSystem", false, "UIManager 的 EventSystem", "Canvas 内嵌的 EventSystem 或运行时自动创建的默认 EventSystem"),
     };
 
     public static List<Issue> RunAll()
@@ -104,18 +104,24 @@ public static class HowFrameDoctor
     {
         const string cat = "路径设置";
         var s = HowFrameSettings.instance;
-        var dirs = new (string label, string path)[]
+        // autoCreate：对应工具首次生成时会自己创建目录，不存在不算问题
+        var dirs = new (string label, string path, bool autoCreate)[]
         {
-            ("枚举 JSON", s.enumJsonDir), ("枚举代码", s.enumCsDir),
-            ("路径 JSON", s.pathJsonDir), ("路径代码", s.pathCsDir),
-            ("配置 Excel", s.configExcelDir), ("配置 JSON", s.configJsonDir),
-            ("语言 Excel", s.languageExcelDir), ("语言 JSON", s.languageJsonDir),
-            ("UI 脚本", s.uiScriptDir), ("Addressables 根目录", s.addressableRootDir),
+            ("枚举 JSON", s.enumJsonDir, false), ("枚举代码", s.enumCsDir, false),
+            ("路径 JSON", s.pathJsonDir, false), ("路径代码", s.pathCsDir, false),
+            ("配置 Excel", s.configExcelDir, false), ("配置 JSON", s.configJsonDir, false),
+            ("语言 Excel", s.languageExcelDir, false), ("语言 JSON", s.languageJsonDir, false),
+            ("UI 脚本", s.uiScriptDir, true), ("Addressables 根目录", s.addressableRootDir, false),
         };
 
         bool allOk = true;
-        foreach (var (label, path) in dirs)
+        foreach (var (label, path, autoCreate) in dirs)
         {
+            if (autoCreate && !string.IsNullOrWhiteSpace(path) && !Directory.Exists(HowFrameSettings.ToFullPath(path)))
+            {
+                yield return new Issue(Level.Ok, cat, $"{label} 目录 {path} 尚未创建（首次生成时自动创建）");
+                continue;
+            }
             if (string.IsNullOrWhiteSpace(path))
             {
                 allOk = false;
@@ -127,7 +133,7 @@ public static class HowFrameDoctor
                 yield return new Issue(Level.Warning, cat, $"{label} 目录不存在: {path}");
             }
         }
-        if (allOk) yield return new Issue(Level.Ok, cat, "所有配置目录都存在");
+        if (allOk) yield return new Issue(Level.Ok, cat, "配置目录检查通过");
     }
 
     public static IEnumerable<Issue> CheckPython()
@@ -190,12 +196,14 @@ public static class HowFrameDoctor
     public static IEnumerable<Issue> CheckInstanceAssets(List<AddressableItem> items)
     {
         const string cat = "Instance 资源";
-        foreach (var (name, required, usage) in InstanceAssets)
+        foreach (var (name, required, usage, fallback) in InstanceAssets)
         {
             var found = items.Where(i => i.Name == name).ToList();
             var tagged = found.FirstOrDefault(i => i.Labels.Contains(HowInit.InstanceLabel));
             if (tagged.AssetPath != null)
                 yield return new Issue(Level.Ok, cat, $"{name}（{usage}）", tagged.AssetPath);
+            else if (fallback != null)
+                yield return new Issue(Level.Ok, cat, $"{name} 未提供，将使用{fallback}");
             else if (found.Count > 0)
                 yield return new Issue(required ? Level.Error : Level.Warning, cat,
                     $"{name} 在 Addressables 中但没有 \"{HowInit.InstanceLabel}\" 标签，框架初始化时不会加载（{usage}）", found[0].AssetPath);
