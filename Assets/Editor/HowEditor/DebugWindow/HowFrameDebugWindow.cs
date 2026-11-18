@@ -15,7 +15,7 @@ using Object = UnityEngine.Object;
 /// </summary>
 public class HowFrameDebugWindow : EditorWindow
 {
-    private enum Tab { 概览, 语言, 资源, UI, 事件 }
+    private enum Tab { 概览, 语言, 资源, UI, 事件, Shader }
 
     private Tab _tab;
     private Vector2 _scroll;
@@ -59,6 +59,7 @@ public class HowFrameDebugWindow : EditorWindow
                 case Tab.资源: DrawAssets(); break;
                 case Tab.UI: DrawUI(); break;
                 case Tab.事件: DrawEvents(); break;
+                case Tab.Shader: DrawShaders(); break;
             }
         }
         finally
@@ -244,6 +245,37 @@ public class HowFrameDebugWindow : EditorWindow
         {
             if (UIManager.Check(key.name)) continue;
             if (GUILayout.Button("Show " + key.name, EditorStyles.miniButton)) UIManager.Show(key.name);
+        }
+    }
+
+    #endregion
+
+    #region Shader
+
+    private static void DrawShaders()
+    {
+        EditorGUILayout.LabelField("材质（ShaderManager.MaterialKeys）", EditorStyles.boldLabel);
+        foreach (var key in ShaderManager.MaterialKeys.OrderBy(k => k).ToList())
+        {
+            if (!ShaderManager.TryGetMaterial(key, out var material)) continue;
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(key, GUILayout.MinWidth(120));
+                EditorGUILayout.LabelField(material.shader != null ? material.shader.name : "-", GUILayout.MinWidth(160));
+                // 选中后可直接在 Inspector 里调参（材质资源的改动退出 Play 时自动还原）
+                if (GUILayout.Button("选中", EditorStyles.miniButton, GUILayout.Width(40))) Ping(material);
+            }
+        }
+
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Shader（ShaderManager.Shaders）", EditorStyles.boldLabel);
+        foreach (var shader in ShaderManager.Shaders.Values.Where(s => s != null).Distinct().OrderBy(s => s.name).ToList())
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField(shader.name, GUILayout.MinWidth(200));
+                if (GUILayout.Button("定位", EditorStyles.miniButton, GUILayout.Width(40))) Ping(shader);
+            }
         }
     }
 

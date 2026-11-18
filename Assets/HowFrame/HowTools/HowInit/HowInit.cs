@@ -67,6 +67,7 @@ public static class HowInit
             WakeSafe(nameof(PropertyAssistant), PropertyAssistant.Wake);
             WakeSafe(nameof(DataAssistant), DataAssistant.Wake);
             WakeSafe(nameof(LangManager), LangManager.Wake);
+            WakeSafe(nameof(ShaderManager), ShaderManager.Wake);
             WakeSafe(nameof(AudioManager), AudioManager.Wake);
             WakeSafe(nameof(InputAssistant), InputAssistant.Wake);
             WakeSafe(nameof(SceneLoadAssistant), SceneLoadAssistant.Wake);

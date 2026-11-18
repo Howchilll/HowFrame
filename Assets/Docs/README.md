@@ -56,7 +56,7 @@ GameInit.Awake()
          │     ├── AssetAssistant.LoadLabelsAsync(HowInit.InstanceLabel = "Instance")
          │     └── WakeSafe(...)        // Wake each module; one failure is logged, not fatal
          │           Debug → Type → Mono → Coroutine → Update → Property
-         │           → Data → Lang → Audio → Input → SceneLoad → UI → Console
+         │           → Data → Lang → Shader → Audio → Input → SceneLoad → UI → Console
          ├── LangManager.SetLanguage(...)                     // Load language pack
          └── AssetAssistant.LoadLabelsAsync(null, onProgress, resourcesTags) // Preload game assets (GameInit.Progress)
 ```
@@ -334,6 +334,28 @@ A lightweight JSON helper built on Newtonsoft.Json's `JObject` (complements `Dat
 - `CameraEffect`: camera post-processing.
 - `LineRender` / `LineManager`: centralized line rendering.
 
+### 4.19.1 HowShader — shader & material manager
+
+Location: [ShaderManager.cs](../HowFrame/HowTools/HowShader/ShaderManager.cs), key type [ShaderProperty.cs](../HowFrame/HowEnum/ShaderProperty.cs)
+
+- **Shader dictionary**: `GetShader(name)` / `TryGetShader` look up the dictionary → the `AssetAssistant` cache → `Shader.Find`, then cache the result. `RegisterShader`, `RefreshFromCache()` (registers every cached shader; called in `Wake`).
+- **Material dictionary**: `CreateMaterial(key, shaderName)`, `CloneMaterial(newKey, source)` (source = material key, cached material asset name, or shader name), `RegisterMaterial(key, material)` for external materials, `Apply(renderer, key, slot)` to assign a shared material, `ReleaseMaterial` / `ReleaseAllMaterials` (destroys only materials the manager created).
+- **Set parameters by string**: `SetFloat / SetInt / SetColor / SetVector / SetTexture / SetKeyword(key, property, value)`. If `key` is a material key, that material changes; otherwise it's treated as a shader name and **every registered material using that shader** changes (material keys win). Returns the number of materials changed; missing properties warn once.
+- `TrySetFromString(key, property, "value", out error)` parses by the property's declared type (`1.5`, `#FF8800`, `1,0.5,0,1`, texture name) — handy for consoles and config tables.
+- **Globals**: `SetGlobalFloat / Int / Color / Vector / Texture`, `SetGlobalKeyword`, matching getters.
+- **Asset safety**: in the editor, material *assets* are snapshotted before the first change and restored when Play mode exits, so runtime tweaking never rewrites `.mat` files.
+- Property names can be strings or generated `ShaderProperty` constants:
+
+```csharp
+ShaderManager.CreateMaterial("Hero", ShaderKeys.Lit.ShaderName);
+ShaderManager.Apply(heroRenderer, "Hero");
+ShaderManager.SetColor("Hero", ShaderKeys.Lit.BaseColor, Color.red);
+ShaderManager.SetKeyword("Hero", ShaderKeys.Lit.Keywords.EMISSION, true);
+ShaderManager.SetFloat(ShaderKeys.Lit.ShaderName, "_Smoothness", 0.2f); // every registered Lit material
+```
+
+- Console commands: `shader.list`, `shader.set <key> <property> <value>`, `shader.keyword <key> <keyword> <on|off>`, `shader.global <property|keyword> <value|on|off>`, `shader.clone <newKey> <source>`. The Runtime Debugger has a **Shader** tab listing registered shaders and materials.
+
 ### 4.20 HowTime / HowRandom / HowDebug / HowDefer / HowJobs / HowKeys / HowSingleton / HowSimpleTool
 
 Small utilities whose names say what they do:
@@ -368,6 +390,7 @@ Every path used by the framework's editor tools is configured here only, and sav
 | Localization | Excel folder, JSON folder | LanguageConfiger, LanguageConfiger (Py) |
 | UI | Panel script root, AutoUI template folder (empty = built-in) | AutoUI, UIAutoBind |
 | Addressables | Auto-include root folder | AddressableAutoIncremental |
+| Shader | Scan folders, excluded folders (default `Assets/Packages`, `Assets/Plugins`), extra shader names, `ShaderKeys.cs` output folder | Shader Keys Generator |
 | Boot scene | Scene used by "play from boot scene" (empty = first enabled scene in Build Settings) | PlayFromBoot |
 | KillAsset | Target folder, dependency scan roots, ignore rules | KillAsset |
 
@@ -388,6 +411,7 @@ Conventions:
 | [Doctor](../Editor/HowEditor/Doctor) | `Tools/HowFrame/Doctor (健康检查)` | One-click check of framework conventions, see 5.4 |
 | [Runtime Debugger](../Editor/HowEditor/DebugWindow) | `Tools/HowFrame/Runtime Debugger (运行时调试)` | Inspect framework state in Play mode, see 5.5 |
 | [Missing References](../Editor/HowEditor/MissingRefs) | `Tools/HowFrame/Missing References (丢失引用)` | Finds missing scripts and references to deleted assets in prefabs / ScriptableObjects / scenes; can remove missing scripts in one click |
+| [Shader Keys Generator](../Editor/HowEditor/ShaderKeys) | `Tools/HowFrame/Shader Keys Generator` | Scans project shaders / Shader Graphs (minus excluded folders) plus extra shaders listed in settings (URP Lit / Simple Lit / Unlit / Particles Unlit by default) and generates `ShaderKeys.cs`: `ShaderKeys.Lit.ShaderName`, `ShaderKeys.Lit.BaseColor`, `ShaderKeys.Lit.Keywords.EMISSION` … Also runs headless via `-executeMethod ShaderKeysGenerator.Generate` |
 | [PlayFromBoot](../Editor/HowEditor/PlayFromBoot) | `Tools/HowFrame/从启动场景运行` (toggle), `Tools/HowFrame/运行启动场景` (Ctrl+Alt+P) | Pressing Play in any scene enters the boot scene (the one with `GameInit`) first, and returns to the original scene afterwards; the boot scene is set in HowFrame settings |
 
 ### 5.1 AutoUI auto-binding window
@@ -419,7 +443,7 @@ Location: [HowFrameTests/Editor](../HowFrameTests/Editor). Run from Window > Gen
 Unity.exe -batchmode -projectPath <project> -runTests -testPlatform EditMode -assemblyNames HowFrame.Tests.Editor -testResults results.xml
 ```
 
-Coverage: settings path resolution and built-in file lookup, PathEditor, DataAssistant read / overwrite / delete, LangManager missing-key fallback and recording, EnumKey conversion, UIManager Back on an empty stack, every Doctor check (enum sync incl. groups, language files, duplicate names, Instance assets), append-only language Excel writes, HowConsole parsing / conversion / errors, and the missing-reference scanner.
+Coverage: settings path resolution and built-in file lookup, PathEditor, DataAssistant read / overwrite / delete, LangManager missing-key fallback and recording, EnumKey conversion, UIManager Back on an empty stack, every Doctor check (enum sync incl. groups, language files, duplicate names, Instance assets), append-only language Excel writes, HowConsole parsing / conversion / errors, the missing-reference scanner, and ShaderManager + the shader key generator.
 
 ### 5.4 Doctor (health check)
 

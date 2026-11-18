@@ -82,6 +82,12 @@ public class HowFrameSettingsProvider : SettingsProvider
         Section("Addressables");
         DirField("addressableRootDir", "自动收录根目录");
 
+        Section("Shader（Shader Keys Generator）");
+        Prop("shaderScanDirs", "扫描目录");
+        Prop("shaderExcludeDirs", "排除目录");
+        Prop("shaderExtraNames", "额外 Shader 名");
+        DirField("shaderCsDir", "常量输出目录", allowEmpty: true);
+
         Section("启动场景（从启动场景运行）");
         BootSceneField();
 

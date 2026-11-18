@@ -30,6 +30,16 @@ public class HowFrameSettings : ScriptableSingleton<HowFrameSettings>
         public const string LanguageExcelDir = "GameTable/Languages";
         public const string LanguageJsonDir = "Assets/StreamingAssets/Languages";
         public const string UIScriptDir = "Assets/Scripts/UI";
+        public const string ShaderCsDir = "Assets/HowFrame/HowEnum/Shaders";
+        public static List<string> ShaderScanDirs() => new List<string> { "Assets" };
+        public static List<string> ShaderExcludeDirs() => new List<string> { "Assets/Packages", "Assets/Plugins" };
+        public static List<string> ShaderExtraNames() => new List<string>
+        {
+            "Universal Render Pipeline/Lit",
+            "Universal Render Pipeline/Simple Lit",
+            "Universal Render Pipeline/Unlit",
+            "Universal Render Pipeline/Particles/Unlit",
+        };
         public const string AddressableRootDir = "Assets/GameRes";
         public const string KillAssetTargetDir = "Assets/Art";
         public static List<string> KillAssetEntryDirs() => new List<string> { "Assets/Scenes", "Assets/Resources", "Assets/GameRes" };
@@ -73,6 +83,19 @@ public class HowFrameSettings : ScriptableSingleton<HowFrameSettings>
     [Tooltip("该目录下的资源会被自动加入 Addressables，按一级子目录分组")]
     public string addressableRootDir = Defaults.AddressableRootDir;
 
+    // ---------------- Shader ----------------
+    [Tooltip("扫描这些目录下的 Shader / ShaderGraph 生成属性名与关键字常量")]
+    public List<string> shaderScanDirs = Defaults.ShaderScanDirs();
+
+    [Tooltip("扫描时跳过的目录（第三方包、插件自带的 Shader）")]
+    public List<string> shaderExcludeDirs = Defaults.ShaderExcludeDirs();
+
+    [Tooltip("额外要生成常量的 Shader 名（如 URP 内置 Shader，它们不在 Assets 里）")]
+    public List<string> shaderExtraNames = Defaults.ShaderExtraNames();
+
+    [Tooltip("生成的 ShaderKeys.cs 输出目录（需在 HowEnum 程序集内，ShaderProperty 定义在那里）")]
+    public string shaderCsDir = Defaults.ShaderCsDir;
+
     // ---------------- 启动场景 ----------------
     [Tooltip("「从启动场景运行」使用的场景（放 GameInit 的场景）。留空则使用 Build Settings 中第一个启用的场景")]
     public string bootScene = "";
@@ -115,6 +138,10 @@ public class HowFrameSettings : ScriptableSingleton<HowFrameSettings>
         autoUITemplateDir = "";
         addressableRootDir = Defaults.AddressableRootDir;
         bootScene = "";
+        shaderScanDirs = Defaults.ShaderScanDirs();
+        shaderExcludeDirs = Defaults.ShaderExcludeDirs();
+        shaderExtraNames = Defaults.ShaderExtraNames();
+        shaderCsDir = Defaults.ShaderCsDir;
         killAssetEntryDirs = Defaults.KillAssetEntryDirs();
         killAssetTargetDir = Defaults.KillAssetTargetDir;
         killAssetIgnoreRules = Defaults.KillAssetIgnoreRules();

@@ -82,7 +82,49 @@ namespace HowFrame
             HowConsole.Register("assets", "已加载的 Label 与缓存数量", _ =>
                 (object)$"Label: {string.Join(", ", AssetAssistant.LoadedLabels)}　缓存资源: {AssetAssistant.CachedCount}");
 
-            HowConsole.Register("fps", "当前帧率", _ => (object)$"{1f / Mathf.Max(Time.unscaledDeltaTime, 0.0001f):F1} fps");
+            HowConsole.Register("shader.list", "ShaderManager 中的 Shader 与材质", _ =>
+                (object)("Shader: " + string.Join(", ", ShaderManager.Shaders.Keys.Distinct().OrderBy(k => k)) +
+                         "\n材质: " + string.Join(", ", ShaderManager.MaterialKeys.OrderBy(k => k))));
+
+            HowConsole.Register("shader.set", "按字符串设置材质参数（key 为材质 key 或 Shader 名）", args =>
+            {
+                if (args.Length < 3) return "用法: shader.set <材质key|Shader名> <属性> <值>";
+                return ShaderManager.TrySetFromString(args[0], args[1], string.Join(" ", args.Skip(2)), out var error)
+                    ? $"{args[0]}.{args[1]} = {string.Join(" ", args.Skip(2))}"
+                    : error;
+            }, "shader.set <材质key|Shader名> <属性> <值>");
+
+            HowConsole.Register("shader.keyword", "开关材质关键字", args =>
+            {
+                if (args.Length < 3 || !HowConsole.TryConvert(args[2], typeof(bool), out var on)) return "用法: shader.keyword <材质key|Shader名> <关键字> <on|off>";
+                int n = ShaderManager.SetKeyword(args[0], args[1], (bool)on);
+                return $"已修改 {n} 个材质";
+            }, "shader.keyword <材质key|Shader名> <关键字> <on|off>");
+
+            HowConsole.Register("shader.global", "设置全局 float 参数，或开关全局关键字", args =>
+            {
+                if (args.Length < 2) return "用法: shader.global <属性> <float值>　或　shader.global <关键字> <on|off>";
+                // 数字 → float 参数；on/off/true/false → 关键字
+                if (HowConsole.TryConvert(args[1], typeof(float), out var f))
+                {
+                    ShaderManager.SetGlobalFloat(args[0], (float)f);
+                    return $"{args[0]} = {f}";
+                }
+                if (HowConsole.TryConvert(args[1], typeof(bool), out var on))
+                {
+                    ShaderManager.SetGlobalKeyword(args[0], (bool)on);
+                    return $"关键字 {args[0]} {((bool)on ? "开" : "关")}";
+                }
+                return $"无法解析 {args[1]}";
+            }, "shader.global <属性|关键字> <值|on|off>");
+
+            HowConsole.Register("shader.clone", "克隆材质（来源为材质 key、材质资源名或 Shader 名）", args =>
+            {
+                if (args.Length < 2) return "用法: shader.clone <新key> <来源>";
+                return ShaderManager.CloneMaterial(args[0], args[1]) != null ? $"已创建材质 {args[0]}" : $"克隆失败: {args[1]}";
+            }, "shader.clone <新key> <来源>");
+
+            HowConsole.Register("fps","当前帧率", _ => (object)$"{1f / Mathf.Max(Time.unscaledDeltaTime, 0.0001f):F1} fps");
         }
     }
 }

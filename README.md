@@ -19,6 +19,7 @@ Built around **static assistant classes**, **type-safe enums** and **editor auto
 | Events & data | `EventAssistant`, `PropertyAssistant` / `Ref<T>`, `DataAssistant` (MessagePack / JSON saves with atomic writes) |
 | Audio & input | `AudioManager` (music / pooled sounds via AudioMixer), `InputAssistant` (new Input System, device-change detection) |
 | Utilities | Update / coroutine / thread helpers, object pools, weighted random, scene loading, and more |
+| Shaders | `ShaderManager`: shader & material dictionaries, clone materials, set parameters by string (per material or per shader), globals / keywords, generated `ShaderKeys` constants |
 | Debugging | `HowConsole`: in-game command console; turn any static method into a command with `[HowCommand]` |
 | Enums | `HowEnum`: type-safe `EnumKey<TTag>` enums generated from JSON |
 
