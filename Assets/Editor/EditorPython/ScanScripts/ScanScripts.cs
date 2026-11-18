@@ -1,10 +1,9 @@
-﻿#define EDITOR
-using System.IO;
-using System.Collections.Generic;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
-using LitJson;
 
+/// <summary>
+/// 统计指定目录下 C# 脚本数量 / 行数 / 方法数（Python 实现）
+/// </summary>
 public static class ScanScripts
 {
     [MenuItem("Tools/PyFunctions/ScanScripts")]
@@ -15,19 +14,11 @@ public static class ScanScripts
 
     public static void Execute(string path)
     {
-        string scriptPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "ScanScripts", "scan_scripts.py");
-        scriptPath = Path.GetFullPath(scriptPath);
+        string scriptPath = HowFrameSettings.BuiltinPythonScript("ScanScripts", "scan_scripts.py");
 
         try
         {
-            PyCaller pyCaller = new PyCaller();
-
-            string[] args = new string[]
-            {
-                path,
-            };
-
-            pyCaller.RunPythonScript(scriptPath, args, OnPyDone);
+            new PyCaller().RunPythonScript(scriptPath, new[] { HowFrameSettings.ToFullPath(path) }, OnPyDone);
         }
         catch (System.Exception e)
         {
@@ -37,88 +28,48 @@ public static class ScanScripts
 
     private static void OnPyDone(int exitCode)
     {
-        // 将回调调度到主线程，因为 AssetDatabase.Refresh 只能在主线程调用
+        // 进程回调不在主线程，切回主线程再输出 / 刷新
         EditorApplication.delayCall += () =>
         {
-            if (exitCode == 0)
-            {
-                Debug.Log("Python 脚本执行成功！");
-            }
-            else
-            {
-                Debug.LogWarning($"Python 脚本执行完成，但退出码不为 0: {exitCode}");
-            }
-            AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+            if (exitCode == 0) Debug.Log("Python 脚本执行成功！");
+            else Debug.LogWarning($"Python 脚本执行完成，但退出码不为 0: {exitCode}");
         };
     }
 }
 
 public class ScanScriptsParameterWindow : EditorWindow
 {
-    private string path = "";
+    private const string PathPrefsKey = "HowFrame.ScanScripts.Path";
+    private string path = "Assets";
 
     public static void ShowWindow()
     {
-        ScanScriptsParameterWindow window = GetWindow<ScanScriptsParameterWindow>("ScanScripts 参数");
-        window.Show();
+        GetWindow<ScanScriptsParameterWindow>("ScanScripts 参数").Show();
     }
 
     private void OnEnable()
     {
-        LoadParameters();
-    }
-
-    private void LoadParameters()
-    {
-        string jsonPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "ScanScripts", "parameters.json");
-        jsonPath = Path.GetFullPath(jsonPath);
-
-        if (File.Exists(jsonPath))
-        {
-            try
-            {
-                string jsonContent = File.ReadAllText(jsonPath);
-                var paramDict = JsonMapper.ToObject<Dictionary<string, string>>(jsonContent);
-                if (paramDict != null)
-                {
-                    if (paramDict.ContainsKey("path"))
-                        path = paramDict["path"];
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"读取参数配置文件失败: {e.Message}");
-            }
-        }
-    }
-
-    private void SaveParameters()
-    {
-        string jsonPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "ScanScripts", "parameters.json");
-        jsonPath = Path.GetFullPath(jsonPath);
-
-        try
-        {
-            var paramDict = new Dictionary<string, string>();
-            paramDict["path"] = path;
-            string jsonContent = JsonMapper.ToJson(paramDict);
-            File.WriteAllText(jsonPath, jsonContent);
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"保存参数配置文件失败: {e.Message}");
-        }
+        path = EditorPrefs.GetString(PathPrefsKey, "Assets");
     }
 
     private void OnGUI()
     {
         GUILayout.Label("ScanScripts 参数设置", EditorStyles.boldLabel);
         GUILayout.Space(10);
-        path = EditorGUILayout.TextField("path", path);
+
+        EditorGUILayout.BeginHorizontal();
+        path = EditorGUILayout.TextField("扫描目录", path);
+        if (GUILayout.Button("选择", GUILayout.Width(44)))
+        {
+            string picked = EditorUtility.OpenFolderPanel("选择扫描目录", HowFrameSettings.ToFullPath(path), "");
+            if (!string.IsNullOrEmpty(picked)) path = HowFrameSettings.ToProjectRelative(picked);
+        }
+        EditorGUILayout.EndHorizontal();
+
         GUILayout.Space(20);
         if (GUILayout.Button("执行", GUILayout.Height(30)))
         {
-            SaveParameters();
+            EditorPrefs.SetString(PathPrefsKey, path);
             ScanScripts.Execute(path);
             Close();
         }

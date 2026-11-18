@@ -10,7 +10,15 @@ using UnityEngine;
 
 public class AddressableAutoIncremental : AssetPostprocessor
 {
-    private static readonly string RootFolder = "Assets/GameRes";
+    // 自动收录根目录，来自 HowFrame 设置（去掉结尾的 /）
+    private static string RootFolder => (HowFrameSettings.instance.addressableRootDir ?? "").Replace('\\', '/').TrimEnd('/');
+
+    private static bool InRoot(string assetPath) =>
+        !string.IsNullOrEmpty(RootFolder) && assetPath.StartsWith(RootFolder + "/", System.StringComparison.Ordinal);
+
+    private static bool IsCandidate(string assetPath) =>
+        InRoot(assetPath) && !AssetDatabase.IsValidFolder(assetPath) &&
+        !assetPath.EndsWith(".meta") && !assetPath.EndsWith(".cs") && !assetPath.EndsWith(".dll");
 
     static void OnPostprocessAllAssets(
         string[] importedAssets, string[] deletedAssets,
@@ -24,19 +32,15 @@ public class AddressableAutoIncremental : AssetPostprocessor
         }
 
         bool hasRelevantChange =
-            importedAssets.Any(p => p.StartsWith(RootFolder)) ||
-            deletedAssets.Any(p => p.StartsWith(RootFolder)) ||
-            movedAssets.Any(p => p.StartsWith(RootFolder)) ||
-            movedFromAssetPaths.Any(p => p.StartsWith(RootFolder));
+            importedAssets.Any(InRoot) || deletedAssets.Any(InRoot) ||
+            movedAssets.Any(InRoot) || movedFromAssetPaths.Any(InRoot);
 
         if (!hasRelevantChange) return;
 
         // ---------------- 新增/修改 ----------------
         foreach (var assetPath in importedAssets)
         {
-            if (!assetPath.StartsWith(RootFolder)) continue;
-            if (AssetDatabase.IsValidFolder(assetPath)) continue;
-            if (assetPath.EndsWith(".meta") || assetPath.EndsWith(".cs") || assetPath.EndsWith(".dll")) continue;
+            if (!IsCandidate(assetPath)) continue;
 
             string groupName = GetGroupName(assetPath);
             var group = string.IsNullOrEmpty(groupName) ? settings.DefaultGroup : GetOrCreateGroup(settings, groupName);
@@ -59,7 +63,7 @@ public class AddressableAutoIncremental : AssetPostprocessor
         // ---------------- 删除 ----------------
         foreach (var assetPath in deletedAssets)
         {
-            if (!assetPath.StartsWith(RootFolder)) continue;
+            if (!InRoot(assetPath)) continue;
 
             string guid = AssetDatabase.AssetPathToGUID(assetPath);
             if (string.IsNullOrEmpty(guid)) continue;
@@ -75,13 +79,10 @@ public class AddressableAutoIncremental : AssetPostprocessor
         for (int i = 0; i < movedAssets.Length; i++)
         {
             string newPath = movedAssets[i];
-            string oldPath = movedFromAssetPaths[i];
 
-            bool movedIntoRoot = !oldPath.StartsWith(RootFolder) && newPath.StartsWith(RootFolder);
-            bool movedInsideRoot = oldPath.StartsWith(RootFolder) && newPath.StartsWith(RootFolder);
-
-            if (!movedIntoRoot && !movedInsideRoot)
-                continue; // 移出 RootFolder 的不处理
+            // 只处理最终落在 RootFolder 内的资源（移入或在内部移动）；移出的不处理
+            if (!IsCandidate(newPath))
+                continue;
 
             string guid = AssetDatabase.AssetPathToGUID(newPath);
             var entry = settings.FindAssetEntry(guid);

@@ -124,7 +124,7 @@ public class PyTemplateGenerator : EditorWindow
         string pythonScriptName = ToSnakeCase(normalizedName);
 
         // 创建文件夹路径
-        string basePath = Path.Combine(Application.dataPath, "Editor", "EditorPython", normalizedName);
+        string basePath = Path.Combine(HowFrameSettings.ToFullPath(HowFrameSettings.instance.pyToolOutputDir), normalizedName);
         
         if (Directory.Exists(basePath))
         {
@@ -172,6 +172,10 @@ public class PyTemplateGenerator : EditorWindow
         EditorUtility.DisplayDialog("成功", $"模板已生成到:\n{normalizedName}/", "确定");
     }
 
+    /// <summary>生成代码里使用的工具目录（相对工程根目录，统一用 /）</summary>
+    private static string ToolDirForCode(string className)
+        => (HowFrameSettings.instance.pyToolOutputDir.TrimEnd('/', '\\') + "/" + className).Replace('\\', '/');
+
     private string GenerateCsFile(string className, string pythonScriptName, List<ParameterEntry> paramsList)
     {
         bool hasParams = paramsList != null && paramsList.Count > 0;
@@ -201,7 +205,7 @@ public class PyTemplateGenerator : EditorWindow
             sb.AppendLine();
             sb.AppendLine($"    public static void Execute({string.Join(", ", validParams.Select(p => $"string {p.Name}"))})");
             sb.AppendLine("    {");
-            sb.AppendLine($"        string scriptPath = Path.Combine(Application.dataPath, \"Editor\", \"EditorPython\", \"{className}\", \"{pythonScriptName}.py\");");
+            sb.AppendLine($"        string scriptPath = Path.Combine(HowFrameSettings.ToFullPath(\"{ToolDirForCode(className)}\"), \"{pythonScriptName}.py\");");
             sb.AppendLine("        scriptPath = Path.GetFullPath(scriptPath);");
             sb.AppendLine();
             sb.AppendLine("        try");
@@ -257,7 +261,7 @@ public class PyTemplateGenerator : EditorWindow
             sb.AppendLine();
             sb.AppendLine("    private void LoadParameters()");
             sb.AppendLine("    {");
-            sb.AppendLine($"        string jsonPath = Path.Combine(Application.dataPath, \"Editor\", \"EditorPython\", \"{className}\", \"parameters.json\");");
+            sb.AppendLine($"        string jsonPath = Path.Combine(HowFrameSettings.ToFullPath(\"{ToolDirForCode(className)}\"), \"parameters.json\");");
             sb.AppendLine("        jsonPath = Path.GetFullPath(jsonPath);");
             sb.AppendLine();
             sb.AppendLine("        if (File.Exists(jsonPath))");
@@ -284,7 +288,7 @@ public class PyTemplateGenerator : EditorWindow
             sb.AppendLine();
             sb.AppendLine("    private void SaveParameters()");
             sb.AppendLine("    {");
-            sb.AppendLine($"        string jsonPath = Path.Combine(Application.dataPath, \"Editor\", \"EditorPython\", \"{className}\", \"parameters.json\");");
+            sb.AppendLine($"        string jsonPath = Path.Combine(HowFrameSettings.ToFullPath(\"{ToolDirForCode(className)}\"), \"parameters.json\");");
             sb.AppendLine("        jsonPath = Path.GetFullPath(jsonPath);");
             sb.AppendLine();
             sb.AppendLine("        try");
@@ -329,7 +333,7 @@ public class PyTemplateGenerator : EditorWindow
             sb.AppendLine($"    [MenuItem(\"Tools/PyFunctions/{className}\")]");
             sb.AppendLine("    public static void Run()");
             sb.AppendLine("    {");
-            sb.AppendLine($"        string scriptPath = Path.Combine(Application.dataPath, \"Editor\", \"EditorPython\", \"{className}\", \"{pythonScriptName}.py\");");
+            sb.AppendLine($"        string scriptPath = Path.Combine(HowFrameSettings.ToFullPath(\"{ToolDirForCode(className)}\"), \"{pythonScriptName}.py\");");
             sb.AppendLine("        scriptPath = Path.GetFullPath(scriptPath);");
             sb.AppendLine();
             sb.AppendLine("        try");

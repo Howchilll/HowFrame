@@ -21,8 +21,6 @@ public class PathCreator : EditorWindow
     {
         public string Namespace = "HowFrame";
         public string ClassName = "HowPath";
-        public string JsonDir = "Assets/Config/";
-        public string CsDir = "Assets/Scripts/Generated/";
         public List<PathEntry> Entries = new List<PathEntry>();
     }
 
@@ -58,8 +56,9 @@ public class PathCreator : EditorWindow
         GUILayout.Label("基本设置", EditorStyles.boldLabel);
         config.Namespace = EditorGUILayout.TextField("命名空间", config.Namespace);
         config.ClassName = EditorGUILayout.TextField("类名 (Json 和 CS 共用)", config.ClassName);
-        config.JsonDir = EditorGUILayout.TextField("Json 输出目录", config.JsonDir);
-        config.CsDir = EditorGUILayout.TextField("C# 输出目录", config.CsDir);
+        HowFrameEditorGUI.PathInfo("Json 目录", HowFrameSettings.instance.pathJsonDir);
+        HowFrameEditorGUI.PathInfo("C# 输出目录", HowFrameSettings.instance.pathCsDir);
+        HowFrameEditorGUI.SettingsButton();
 
         GUILayout.Space(10);
 
@@ -114,17 +113,8 @@ public class PathCreator : EditorWindow
     }
 
 
-    private string ResolvePath(string pathSetting)
-    {
-        if (!string.IsNullOrEmpty(pathSetting) && pathSetting.Contains("."))
-        {
-            return PathEditor.FindPath(pathSetting);
-        }
-        return pathSetting;
-    }
-
-    private string GetJsonPath() => Path.Combine(ResolvePath(config.JsonDir), config.ClassName + ".json");
-    private string GetCsPath() => Path.Combine(ResolvePath(config.CsDir), config.ClassName + ".cs");
+    private string GetJsonPath() => Path.Combine(HowFrameSettings.ToFullPath(HowFrameSettings.instance.pathJsonDir), config.ClassName + ".json");
+    private string GetCsPath() => Path.Combine(HowFrameSettings.ToFullPath(HowFrameSettings.instance.pathCsDir), config.ClassName + ".cs");
 
     private void SaveConfig()
     {

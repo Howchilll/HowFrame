@@ -7,7 +7,8 @@ using Debug = UnityEngine.Debug;
 public class PyCaller
 {
     private Process pythonProcess;
-    private string pythonExePath = EditorPath.PythonPath;
+    // Python 解释器来自 HowFrame 设置（留空则自动在 PATH 中查找）
+    private readonly string pythonExePath = HowFrameSettings.instance.ResolvePythonExecutable();
     
     public void RunPythonScript(string scriptPath, string args = "", Action<int> onCompleted = null)
     {
@@ -42,7 +43,7 @@ public class PyCaller
         
         if (string.IsNullOrEmpty(pythonExePath) || !System.IO.File.Exists(pythonExePath))
         {
-            Debug.LogError($"Python 可执行文件不存在: {pythonExePath}");
+            Debug.LogError($"Python 可执行文件不存在: {pythonExePath}，请在 Project Settings > HowFrame 中配置");
             throw new System.IO.FileNotFoundException($"Python 可执行文件不存在: {pythonExePath}");
         }
         

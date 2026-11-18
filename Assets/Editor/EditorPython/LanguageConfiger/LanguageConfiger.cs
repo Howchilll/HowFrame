@@ -1,46 +1,30 @@
-#define EDITOR
-using System.IO;
-using System.Collections.Generic;
-using System.Threading;
 using UnityEditor;
 using UnityEngine;
-using LitJson;
 
+/// <summary>
+/// Python 版多语言配置器。目录来自 HowFrame 设置（languageExcelDir / languageJsonDir）。
+/// </summary>
 public static class LanguageConfigerPy
 {
-    private static SynchronizationContext _mainThreadContext;
-
     [MenuItem("Tools/PyFunctions/Language Configer")]
     public static void Run()
     {
-        // 捕获主线程上下文
-        _mainThreadContext = SynchronizationContext.Current;
         LanguageConfigerParameterWindow.ShowWindow();
     }
 
-    public static void Execute(string excelFolder, string jsonOutputFolder, string operationMode)
+    public static void Execute(string operationMode)
     {
-        // 确保有主线程上下文
-        if (_mainThreadContext == null)
-        {
-            _mainThreadContext = SynchronizationContext.Current;
-        }
-
-        string scriptPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "LanguageConfiger", "language_configer.py");
-        scriptPath = Path.GetFullPath(scriptPath);
+        var settings = HowFrameSettings.instance;
+        string scriptPath = HowFrameSettings.BuiltinPythonScript("LanguageConfiger", "language_configer.py");
 
         try
         {
-            PyCaller pyCaller = new PyCaller();
-
-            string[] args = new string[]
+            new PyCaller().RunPythonScript(scriptPath, new[]
             {
-                ResolveDir(excelFolder),
-                ResolveDir(jsonOutputFolder),
+                HowFrameSettings.ToFullPath(settings.languageExcelDir),
+                HowFrameSettings.ToFullPath(settings.languageJsonDir),
                 operationMode,
-            };
-
-            pyCaller.RunPythonScript(scriptPath, args, OnPyDone);
+            }, OnPyDone);
         }
         catch (System.Exception e)
         {
@@ -50,125 +34,30 @@ public static class LanguageConfigerPy
 
     private static void OnPyDone(int exitCode)
     {
-        if (exitCode == 0)
+        // 进程回调不在主线程，AssetDatabase 操作需切回主线程
+        EditorApplication.delayCall += () =>
         {
-            Debug.Log("Python 语言配置脚本执行成功！");
-        }
-        else
-        {
-            Debug.LogWarning($"Python 语言配置脚本执行完成，但退出码不为 0: {exitCode}");
-        }
-
-        // 使用SynchronizationContext确保在主线程中执行AssetDatabase操作
-        if (_mainThreadContext != null)
-        {
-            _mainThreadContext.Post(_ =>
-            {
-                AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
-            }, null);
-        }
-        else
-        {
-            // 降级到delayCall作为备选方案
-            UnityEditor.EditorApplication.delayCall += () =>
-            {
-                AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
-            };
-        }
+            if (exitCode == 0) Debug.Log("Python 语言配置脚本执行成功！");
+            else Debug.LogWarning($"Python 语言配置脚本执行完成，但退出码不为 0: {exitCode}");
+            AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
+        };
     }
-
-    private static string ResolveDir(string dir)
-    {
-        if (!string.IsNullOrEmpty(dir) && dir.Contains("."))
-        {
-            string resolved = PathEditor.FindPath(dir);
-            if (string.IsNullOrEmpty(resolved))
-            {
-                Debug.LogError($"目录索引解析失败: {dir}");
-                return dir;
-            }
-            return resolved;
-        }
-        return dir;
-    }
-        
-
 }
 
 public class LanguageConfigerParameterWindow : EditorWindow
 {
-    private string excelFolder = "EditorPath.LanguageExcelPath";
-    private string jsonOutputFolder = "EditorPath.LanguageJsonPath";
-    private int operationModeIndex = 0;
+    private const string ModePrefsKey = "HowFrame.LanguageConfigerPy.Mode";
     private readonly string[] operationModes = { "扫描并更新 Excel", "转换所有语言配置文件生成 JSON" };
+    private int operationModeIndex;
 
     public static void ShowWindow()
     {
-        LanguageConfigerParameterWindow window = GetWindow<LanguageConfigerParameterWindow>("Python 语言配置器");
-        window.Show();
+        GetWindow<LanguageConfigerParameterWindow>("Python 语言配置器").Show();
     }
 
     private void OnEnable()
     {
-        LoadParameters();
-    }
-
-    private void LoadParameters()
-    {
-        string jsonPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "LanguageConfiger", "parameters.json");
-        jsonPath = Path.GetFullPath(jsonPath);
-
-        if (File.Exists(jsonPath))
-        {
-            try
-            {
-                string jsonContent = File.ReadAllText(jsonPath);
-                var paramDict = JsonMapper.ToObject<Dictionary<string, string>>(jsonContent);
-                if (paramDict != null)
-                {
-                    if (paramDict.ContainsKey("excelFolder"))
-                        excelFolder = paramDict["excelFolder"];
-                    if (paramDict.ContainsKey("jsonOutputFolder"))
-                        jsonOutputFolder = paramDict["jsonOutputFolder"];
-                    if (paramDict.ContainsKey("operationMode"))
-                    {
-                        string mode = paramDict["operationMode"];
-                        for (int i = 0; i < operationModes.Length; i++)
-                        {
-                            if (operationModes[i] == mode)
-                            {
-                                operationModeIndex = i;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogWarning($"读取参数配置文件失败: {e.Message}");
-            }
-        }
-    }
-
-    private void SaveParameters()
-    {
-        string jsonPath = Path.Combine(Application.dataPath, "Editor", "EditorPython", "LanguageConfiger", "parameters.json");
-        jsonPath = Path.GetFullPath(jsonPath);
-
-        try
-        {
-            var paramDict = new Dictionary<string, string>();
-            paramDict["excelFolder"] = excelFolder;
-            paramDict["jsonOutputFolder"] = jsonOutputFolder;
-            paramDict["operationMode"] = operationModes[operationModeIndex];
-            string jsonContent = JsonMapper.ToJson(paramDict);
-            File.WriteAllText(jsonPath, jsonContent);
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"保存参数配置文件失败: {e.Message}");
-        }
+        operationModeIndex = Mathf.Clamp(EditorPrefs.GetInt(ModePrefsKey, 0), 0, operationModes.Length - 1);
     }
 
     private void OnGUI()
@@ -185,15 +74,16 @@ public class LanguageConfigerParameterWindow : EditorWindow
         );
         GUILayout.Space(10);
 
-        excelFolder = EditorGUILayout.TextField("Excel 文件夹路径", excelFolder);
-        jsonOutputFolder = EditorGUILayout.TextField("JSON 输出文件夹", jsonOutputFolder);
+        HowFrameEditorGUI.PathInfo("Excel 文件夹", HowFrameSettings.instance.languageExcelDir);
+        HowFrameEditorGUI.PathInfo("JSON 输出文件夹", HowFrameSettings.instance.languageJsonDir);
+        HowFrameEditorGUI.SettingsButton();
         operationModeIndex = EditorGUILayout.Popup("操作模式", operationModeIndex, operationModes);
 
         GUILayout.Space(20);
         if (GUILayout.Button("执行", GUILayout.Height(30)))
         {
-            SaveParameters();
-            LanguageConfigerPy.Execute(excelFolder, jsonOutputFolder, operationModes[operationModeIndex]);
+            EditorPrefs.SetInt(ModePrefsKey, operationModeIndex);
+            LanguageConfigerPy.Execute(operationModes[operationModeIndex]);
             Close();
         }
     }

@@ -1,8 +1,6 @@
-﻿{
+{
     "Namespace": "",
     "ClassName": "GlobalPath",
-    "JsonDir": "EditorPath.PathJson",
-    "CsDir": "EditorPath.PathCs",
     "Entries": [
         {
             "Key": "LangPath",

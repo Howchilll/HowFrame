@@ -119,78 +119,136 @@ namespace HowFrame
         #endregion
 
         #region 批量 Label 加载 + 缓存 + 卸载
-        // 缓存 key = asset.name
-        private static Dictionary<string, Object> _cache = new Dictionary<string, Object>();
-        private static Dictionary<string, List<AsyncOperationHandle>> _handlesByLabel = new Dictionary<string, List<AsyncOperationHandle>>();
-        
-        public static async Task LoadLabelsAsync(Action onComplete = null, params string[] labels)
+        // 缓存 key = asset.name；同一资源可能同时属于多个 Label，用 _keyOwners 记录归属，
+        // 只有所有归属 Label 都卸载后才移出缓存，避免缓存里留下已释放的资源引用。
+        private static readonly Dictionary<string, Object> _cache = new Dictionary<string, Object>();
+        private static readonly Dictionary<string, HashSet<string>> _keyOwners = new Dictionary<string, HashSet<string>>();
+        private static readonly Dictionary<string, List<AsyncOperationHandle>> _handlesByLabel = new Dictionary<string, List<AsyncOperationHandle>>();
+        private static readonly Dictionary<string, Task> _loadingLabels = new Dictionary<string, Task>();
+
+        /// <summary>某个 Label 是否已加载完成（已在缓存中）</summary>
+        public static bool IsLabelLoaded(string label) => _handlesByLabel.ContainsKey(label);
+
+        /// <summary>按 Label 批量加载并缓存。已加载 / 正在加载的 Label 不会重复加载。</summary>
+        public static Task LoadLabelsAsync(Action onComplete = null, params string[] labels)
         {
-            foreach (var label in labels)
-            {
-                AsyncOperationHandle<IList<Object>> handle = Addressables.LoadAssetsAsync<Object>(
-                    label,
-                    null
-                );
-
-                if (!_handlesByLabel.TryGetValue(label, out var list))
-                {
-                    list = new List<AsyncOperationHandle>();
-                    _handlesByLabel[label] = list;
-                }
-                list.Add(handle);
-
-                try
-                {
-                    var assets = await handle.Task;
-                    foreach (var asset in assets)
-                    {
-                        string key = asset.name;
-                        if (!_cache.ContainsKey(key))
-                        {
-                            _cache[key] = asset;
-                          //  Debug.Log($"[Addressable Loaded] {label} / {key}"+asset.GetType());
-                        }
-                        else
-                        {
-                            Debug.LogWarning($"资源重复: {label} / {key}, 已跳过");
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    Debug.LogError($"加载 Label {label} 失败: {e}");
-                }
-            }
-
-            onComplete?.Invoke();
+            return LoadLabelsAsync(onComplete, null, labels);
         }
 
         public static Task LoadLabelsAsync(params string[] labels)
         {
-            // 直接返回 Task，保证可以 await
-            return LoadLabelsAsync(null, labels);
+            return LoadLabelsAsync(null, null, labels);
         }
-        
+
+        /// <summary>
+        /// 按 Label 批量加载并缓存，onProgress 回调 0~1 的总体进度（按 Label 数量平均分配）。
+        /// </summary>
+        public static async Task LoadLabelsAsync(Action onComplete, Action<float> onProgress, params string[] labels)
+        {
+            var list = new List<string>();
+            if (labels != null)
+            {
+                foreach (var label in labels)
+                    if (!string.IsNullOrEmpty(label) && !list.Contains(label)) list.Add(label);
+            }
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                int index = i;
+                await LoadLabelAsync(list[i], p => onProgress?.Invoke((index + p) / list.Count));
+            }
+
+            onProgress?.Invoke(1f);
+            onComplete?.Invoke();
+        }
+
+        private static Task LoadLabelAsync(string label, Action<float> onProgress)
+        {
+            if (_handlesByLabel.ContainsKey(label)) return Task.CompletedTask;
+            if (_loadingLabels.TryGetValue(label, out var loading)) return loading;
+
+            var task = LoadLabelCore(label, onProgress);
+            if (!task.IsCompleted) _loadingLabels[label] = task;
+            return task;
+        }
+
+        private static async Task LoadLabelCore(string label, Action<float> onProgress)
+        {
+            try
+            {
+                AsyncOperationHandle<IList<Object>> handle = Addressables.LoadAssetsAsync<Object>(label, null);
+                while (!handle.IsDone)
+                {
+                    onProgress?.Invoke(handle.PercentComplete);
+                    await Task.Yield();
+                }
+
+                if (handle.Status != AsyncOperationStatus.Succeeded)
+                {
+                    Debug.LogError($"加载 Label {label} 失败: {handle.OperationException}");
+                    if (handle.IsValid()) Addressables.Release(handle);
+                    return;
+                }
+
+                _handlesByLabel[label] = new List<AsyncOperationHandle> { handle };
+                foreach (var asset in handle.Result)
+                {
+                    if (asset == null) continue;
+                    string key = asset.name;
+                    if (!_cache.TryGetValue(key, out var existing))
+                    {
+                        _cache[key] = asset;
+                        _keyOwners[key] = new HashSet<string> { label };
+                    }
+                    else if (existing == asset)
+                    {
+                        _keyOwners[key].Add(label);
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"资源重名: {label} / {key}（{asset.GetType().Name}），已跳过，按名字取资源时只会拿到先加载的那个");
+                    }
+                }
+                onProgress?.Invoke(1f);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"加载 Label {label} 失败: {e}");
+            }
+            finally
+            {
+                _loadingLabels.Remove(label);
+            }
+        }
+
+        /// <summary>卸载 Label：释放句柄，并把只属于这些 Label 的资源移出缓存。</summary>
         public static void ReleaseLabels(Action onComplete = null, params string[] labels)
         {
             foreach (var label in labels)
             {
-                if (_handlesByLabel.TryGetValue(label, out var list))
+                if (!_handlesByLabel.TryGetValue(label, out var list)) continue;
+
+                foreach (var key in new List<string>(_keyOwners.Keys))
                 {
-                    foreach (var handle in list)
-                        Addressables.Release(handle);
-                    list.Clear();
-                    _handlesByLabel.Remove(label);
+                    var owners = _keyOwners[key];
+                    if (!owners.Remove(label) || owners.Count > 0) continue;
+                    _keyOwners.Remove(key);
+                    _cache.Remove(key);
                 }
-                // 缓存保留，避免资源同时属于多个 Label 被误清
+
+                foreach (var handle in list)
+                    if (handle.IsValid()) Addressables.Release(handle);
+                _handlesByLabel.Remove(label);
             }
 
             onComplete?.Invoke();
         }
+
         public static void ReleaseLabels(params string[] labels)
         {
             ReleaseLabels(null, labels);
         }
+
         public static T AddressableGet<T>(string name) where T : Object
         {
             if (_cache.TryGetValue(name, out var obj))
@@ -198,14 +256,23 @@ namespace HowFrame
             Debug.LogWarning($"AssetAssistant 没有找到资源: {name}");
             return null;
         }
+
+        /// <summary>从缓存取资源，取不到时不打警告</summary>
+        public static bool TryAddressableGet<T>(string name, out T asset) where T : Object
+        {
+            asset = _cache.TryGetValue(name, out var obj) ? obj as T : null;
+            return asset != null;
+        }
+
         public static void ReleaseAll()
         {
             foreach (var list in _handlesByLabel.Values)
             {
                 foreach (var handle in list)
-                    Addressables.Release(handle);
+                    if (handle.IsValid()) Addressables.Release(handle);
             }
             _handlesByLabel.Clear();
+            _keyOwners.Clear();
             _cache.Clear();
         }
         #endregion

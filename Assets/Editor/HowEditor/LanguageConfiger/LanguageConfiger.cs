@@ -15,20 +15,14 @@ using HowEnum;
 /// </summary>
 public class LanguageConfiger : EditorWindow
 {
-    private string excelFolder = "EditorPath.LanguageExcelPath";
-    private string jsonOutputFolder = "EditorPath.LanguageJsonPath";
+    // 目录来自 HowFrame 设置
+    private static string excelFolder => HowFrameSettings.instance.languageExcelDir;
+    private static string jsonOutputFolder => HowFrameSettings.instance.languageJsonDir;
 
-    private const string EditorPrefsKey = "LanguageConfiger_State";
-    
+    [MenuItem("Tools/HowFrame/Language Configer")]
     public static void OpenWindow()
     {
-        var window = GetWindow<LanguageConfiger>("Language Helper");
-        window.LoadEditorPrefs();
-    }
-
-    private void OnDisable()
-    {
-        SaveEditorPrefs();
+        GetWindow<LanguageConfiger>("Language Helper");
     }
 
     private void OnGUI()
@@ -39,8 +33,9 @@ public class LanguageConfiger : EditorWindow
         EditorGUILayout.HelpBox("语言配置现在通过 Excel 文件管理。\n1. 点击「扫描并更新 Excel」扫描项目并更新 Excel 文件\n2. 在 Excel 中编辑语言内容\n3. 点击「转换所有语言配置文件生成 JSON」生成 JSON 文件", MessageType.Info);
         EditorGUILayout.Space(10);
 
-        excelFolder = EditorGUILayout.TextField("Excel 文件夹路径", excelFolder);
-        jsonOutputFolder = EditorGUILayout.TextField("JSON 输出文件夹", jsonOutputFolder);
+        HowFrameEditorGUI.PathInfo("Excel 文件夹", excelFolder);
+        HowFrameEditorGUI.PathInfo("JSON 输出文件夹", jsonOutputFolder);
+        HowFrameEditorGUI.SettingsButton();
 
         EditorGUILayout.Space(10);
 
@@ -260,47 +255,6 @@ public class LanguageConfiger : EditorWindow
         AssetDatabase.Refresh();
     }
 
-    /// <summary>
-    /// 保存编辑器状态（持久化）
-    /// </summary>
-    private void SaveEditorPrefs()
-    {
-        var state = new
-        {
-            excelFolder = excelFolder,
-            jsonOutputFolder = jsonOutputFolder
-        };
-        string json = JsonConvert.SerializeObject(state);
-        EditorPrefs.SetString(EditorPrefsKey, json);
-    }
-
-    /// <summary>
-    /// 加载编辑器状态
-    /// </summary>
-    private void LoadEditorPrefs()
-    {
-        if (!EditorPrefs.HasKey(EditorPrefsKey)) return;
-        try
-        {
-            var json = EditorPrefs.GetString(EditorPrefsKey);
-            var state = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-
-            if (state.TryGetValue("excelFolder", out string excelPath))
-                excelFolder = excelPath;
-
-            if (state.TryGetValue("jsonOutputFolder", out string jsonPath))
-                jsonOutputFolder = jsonPath;
-        }
-        catch { }
-    }
-    
-    private string ResolvePath(string pathSetting)
-    {
-        if (!string.IsNullOrEmpty(pathSetting) && pathSetting.Contains("."))
-        {
-            return PathEditor.FindPath(pathSetting);
-        }
-        return pathSetting;
-    }
+    private static string ResolvePath(string pathSetting) => HowFrameSettings.ToFullPath(pathSetting);
 }
 #endif

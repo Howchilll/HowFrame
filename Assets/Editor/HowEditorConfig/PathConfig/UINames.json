@@ -1,8 +1,6 @@
-﻿{
+{
     "Namespace": "",
     "ClassName": "UINames",
-    "JsonDir": "EditorPath.PathJson",
-    "CsDir": "EditorPath.PathCs",
     "Entries": [
         {
             "Key": "MenuPanel",

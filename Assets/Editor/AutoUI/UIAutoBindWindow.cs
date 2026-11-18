@@ -12,10 +12,8 @@ using System.Text;
 public class UIAutoBindWindow : EditorWindow
 {
     private GameObject prefab;
-    private string scriptParentFolder = "";
+    private static string scriptParentFolder => HowFrameSettings.instance.uiScriptDir;
     private Vector2 scrollPos;
-    
-    private const string ScriptParentFolderKey = "UIAutoBind_ScriptParentFolder";
     
     // 命名规范映射
     private static readonly Dictionary<string, Type> NamingRules = new Dictionary<string, Type>
@@ -113,17 +111,8 @@ public class UIAutoBindWindow : EditorWindow
         var window = GetWindow<UIAutoBindWindow>("UI Auto Bind");
         window.prefab = selected;
         window.minSize = new Vector2(400, 200);
-        
-        // 从 EditorPrefs 加载路径
-        window.scriptParentFolder = EditorPrefs.GetString(ScriptParentFolderKey, "");
     }
-    
-    private void OnDisable()
-    {
-        // 窗口关闭时保存路径
-        EditorPrefs.SetString(ScriptParentFolderKey, scriptParentFolder);
-    }
-    
+
     private void OnGUI()
     {
         if (prefab == null)
@@ -138,50 +127,20 @@ public class UIAutoBindWindow : EditorWindow
         EditorGUILayout.LabelField("预制体:", prefab.name);
         EditorGUILayout.Space(5);
         
-        // 脚本父文件夹选择
-        EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField("脚本文件夹的父文件夹", GUILayout.Width(150));
-        
-        EditorGUI.BeginChangeCheck();
-        scriptParentFolder = EditorGUILayout.TextField(scriptParentFolder);
-        if (EditorGUI.EndChangeCheck())
-        {
-            // TextField 值改变时保存
-            EditorPrefs.SetString(ScriptParentFolderKey, scriptParentFolder);
-        }
-        
-        if (GUILayout.Button("选择", GUILayout.Width(60)))
-        {
-            string path = EditorUtility.OpenFolderPanel("选择脚本文件夹的父文件夹", scriptParentFolder, "");
-            if (!string.IsNullOrEmpty(path))
-            {
-                if (path.StartsWith(Application.dataPath))
-                {
-                    scriptParentFolder = "Assets" + path.Substring(Application.dataPath.Length);
-                    // 选择路径后立即保存
-                    EditorPrefs.SetString(ScriptParentFolderKey, scriptParentFolder);
-                }
-                else
-                {
-                    EditorUtility.DisplayDialog("错误", "请选择 Assets 文件夹内的路径", "确定");
-                }
-            }
-        }
-        EditorGUILayout.EndHorizontal();
-        
+        // 在该目录及其子目录中查找 View / Model 脚本（来自 HowFrame 设置）
+        HowFrameEditorGUI.PathInfo("Panel 脚本根目录", scriptParentFolder);
+        HowFrameEditorGUI.SettingsButton();
+
         EditorGUILayout.Space(10);
-        
+
         if (GUILayout.Button("确定", GUILayout.Height(30)))
         {
             if (string.IsNullOrEmpty(scriptParentFolder))
             {
-                EditorUtility.DisplayDialog("错误", "请选择脚本文件夹的父文件夹", "确定");
+                EditorUtility.DisplayDialog("错误", "请先在 Project Settings > HowFrame 中配置 Panel 脚本根目录", "确定");
                 return;
             }
-            
-            // 保存路径到 EditorPrefs
-            EditorPrefs.SetString(ScriptParentFolderKey, scriptParentFolder);
-            
+
             AutoBind();
         }
     }

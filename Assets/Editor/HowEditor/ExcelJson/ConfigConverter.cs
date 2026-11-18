@@ -17,11 +17,13 @@ using Unity.Plastic.Newtonsoft.Json.Linq;
 /// </summary>
 public class ConfigConverter : EditorWindow
 {
-    private string excelFolder = "EditorPath.ConfigExcelPath";
-    private string jsonFolder = "EditorPath.ConfigJsonPath";
+    // 目录来自 HowFrame 设置
+    private static string excelFolder => HowFrameSettings.instance.configExcelDir;
+    private static string jsonFolder => HowFrameSettings.instance.configJsonDir;
 
 
 
+    [MenuItem("Tools/HowFrame/Config Converter")]
     public static void ShowWindow()
     {
         GetWindow<ConfigConverter>("Config Converter");
@@ -34,15 +36,16 @@ public class ConfigConverter : EditorWindow
 
         EditorGUILayout.HelpBox(
             "功能说明：\n" +
-            "1. Excel → JSON：将 GameTable/Config 中的 xlsx 文件转换为 StreamingAssets/Config 中的 json 文件\n" +
-            "2. JSON → Excel：将 StreamingAssets/Config 中的 json 文件转换为 GameTable/Config 中的 xlsx 文件\n" +
+            "1. Excel → JSON：将 Excel 文件夹中的 xlsx 文件转换为 JSON 文件夹中的 json 文件\n" +
+            "2. JSON → Excel：将 JSON 文件夹中的 json 文件转换为 Excel 文件夹中的 xlsx 文件\n" +
             "注意：会自动保持子文件夹结构",
             MessageType.Info
         );
         EditorGUILayout.Space(10);
 
-        excelFolder = EditorGUILayout.TextField("Excel 文件夹", excelFolder);
-        jsonFolder = EditorGUILayout.TextField("JSON 文件夹", jsonFolder);
+        HowFrameEditorGUI.PathInfo("Excel 文件夹", excelFolder);
+        HowFrameEditorGUI.PathInfo("JSON 文件夹", jsonFolder);
+        HowFrameEditorGUI.SettingsButton();
 
         EditorGUILayout.Space(10);
 
@@ -456,22 +459,9 @@ public class ConfigConverter : EditorWindow
     }
 
     /// <summary>
-    /// 解析路径（支持 EditorPath 索引）
+    /// 解析路径（相对工程根目录或绝对路径）
     /// </summary>
-    private string ResolvePath(string pathSetting)
-    {
-        if (!string.IsNullOrEmpty(pathSetting) && pathSetting.Contains("."))
-        {
-            string resolved = PathEditor.FindPath(pathSetting);
-            if (string.IsNullOrEmpty(resolved))
-            {
-                Debug.LogWarning($"路径索引解析失败: {pathSetting}，使用原始路径");
-                return pathSetting;
-            }
-            return resolved;
-        }
-        return pathSetting;
-    }
+    private static string ResolvePath(string pathSetting) => HowFrameSettings.ToFullPath(pathSetting);
 }
 #endif
 

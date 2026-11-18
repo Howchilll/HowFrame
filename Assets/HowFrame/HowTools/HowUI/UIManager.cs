@@ -133,6 +133,7 @@ namespace HowFrame
 
                     UIObjects[name] = panel;
                     panel.Init();
+                    NotifyLanguageChanged(panel);
                 }
                 else if (panel.transform.parent != parent)
                 {
@@ -182,8 +183,10 @@ namespace HowFrame
                 panel.transform.IsChildOf(canvas.transform)).ToArray(), destroy);
         }
 
+        /// <summary>关闭所有面板，同时清空导航栈。</summary>
         public static void HideAll(bool destroy = false)
         {
+            NavStack.Clear();
             HidePanels(UIObjects.Values.ToArray(), destroy);
         }
 
@@ -225,13 +228,127 @@ namespace HowFrame
                 if (destroy)
                 {
                     foreach (var key in UIObjects.Where(pair => pair.Value == panel).Select(pair => pair.Key).ToArray())
+                    {
                         UIObjects.Remove(key);
+                        NavStack.RemoveAll(entry => entry.Name == key); // 已销毁的面板不能再被 Back 回来
+                    }
                     Object.Destroy(panel.gameObject);
                 }
                 else
                 {
                     panel.gameObject.SetActive(false);
                 }
+            }
+        }
+
+        #endregion
+
+        #region Navigation Stack
+
+        private readonly struct NavEntry
+        {
+            public readonly string Name;
+            public readonly short Level;
+
+            public NavEntry(string name, short level)
+            {
+                Name = name;
+                Level = level;
+            }
+        }
+
+        // 导航栈：Push 打开的面板按顺序入栈，Back 关闭栈顶并重新显示上一个。
+        // 与 Show/Hide 互不干扰：直接 Show 的面板不入栈。
+        private static readonly List<NavEntry> NavStack = new List<NavEntry>();
+
+        /// <summary>导航栈深度</summary>
+        public static int StackCount => NavStack.Count;
+
+        /// <summary>导航栈顶的面板名，栈空时为 null</summary>
+        public static string StackTop => NavStack.Count > 0 ? NavStack[NavStack.Count - 1].Name : null;
+
+        /// <summary>
+        /// 打开面板并压入导航栈。hidePrevious 为 true 时隐藏当前栈顶（Back 时会重新显示）。
+        /// 面板已在栈中时会被移到栈顶。
+        /// </summary>
+        public static void Push(string UIName, object parameter = null, short uiLevel = 0, bool hidePrevious = true)
+        {
+            if (string.IsNullOrEmpty(UIName)) return;
+
+            if (hidePrevious && NavStack.Count > 0 && StackTop != UIName)
+                Hide(false, StackTop);
+
+            NavStack.RemoveAll(entry => entry.Name == UIName);
+            NavStack.Add(new NavEntry(UIName, uiLevel));
+
+            if (parameter != null) Show(UIName, parameter, uiLevel);
+            else Show(UIName, uiLevel);
+        }
+
+        public static void Push(EnumKeyBase UIName, object parameter = null, short uiLevel = 0, bool hidePrevious = true)
+        {
+            Push(UIName.name, parameter, uiLevel, hidePrevious);
+        }
+
+        /// <summary>
+        /// 关闭栈顶面板并重新显示上一个。栈为空时返回 false（可据此决定是否弹出"退出游戏"等）。
+        /// </summary>
+        public static bool Back(bool destroy = false)
+        {
+            if (NavStack.Count == 0) return false;
+
+            var top = NavStack[NavStack.Count - 1];
+            NavStack.RemoveAt(NavStack.Count - 1);
+            Hide(destroy, top.Name);
+
+            if (NavStack.Count > 0)
+            {
+                var previous = NavStack[NavStack.Count - 1];
+                if (!Check(previous.Name))
+                    ShowInternal(false, previous.Level, new[] { previous.Name });
+            }
+            return true;
+        }
+
+        /// <summary>连续 Back 直到指定面板位于栈顶；栈中没有该面板时不做任何事并返回 false。</summary>
+        public static bool BackTo(string UIName, bool destroy = false)
+        {
+            if (NavStack.All(entry => entry.Name != UIName)) return false;
+            while (StackTop != UIName && Back(destroy)) { }
+            return true;
+        }
+
+        public static bool BackTo(EnumKeyBase UIName, bool destroy = false)
+        {
+            return BackTo(UIName.name, destroy);
+        }
+
+        /// <summary>清空导航栈（不关闭面板）</summary>
+        public static void ClearStack()
+        {
+            NavStack.Clear();
+        }
+
+        #endregion
+
+        #region Language
+
+        private static void RefreshLanguage()
+        {
+            foreach (var panel in UIObjects.Values.ToArray())
+                NotifyLanguageChanged(panel);
+        }
+
+        private static void NotifyLanguageChanged(PanelBase panel)
+        {
+            if (panel == null || LangManager.CurrentLanguage.Value == null) return;
+            try
+            {
+                panel.WhenLanguageChanged();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"UIManager: {panel.GetType().Name}.WhenLanguageChanged 异常: {e}");
             }
         }
 
@@ -267,6 +384,9 @@ namespace HowFrame
 
             Canvases.Clear();
             UIObjects.Clear();
+            NavStack.Clear();
+            LangManager.OnLanguageChanged -= RefreshLanguage; // 重复 Wake 时避免重复订阅
+            LangManager.OnLanguageChanged += RefreshLanguage;
             _uiRoot = new GameObject("UIRoot").transform;
             Object.DontDestroyOnLoad(_uiRoot.gameObject);
             CreateEventSystem();

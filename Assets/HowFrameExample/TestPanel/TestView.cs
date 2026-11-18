@@ -44,6 +44,14 @@ public partial class TestPanel : PanelBase
         OnHide();
     }
 
+    // 由 Model 中生成的 ChangeLanguage 实现；没有文本组件时编译器会移除这次调用
+    partial void ChangeLanguage();
+
+    protected override void WhenLanguageChanged()
+    {
+        ChangeLanguage();
+    }
+
 
 }
 

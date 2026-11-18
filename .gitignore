@@ -90,3 +90,20 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]erver[Dd]ata/
 
 # Unity 编辑器生成的本地 csproj/sln 已通过上方 *.csproj/*.sln 忽略
+
+# Python 缓存
+__pycache__/
+__pycache__.meta
+*.py[cod]
+*.py[cod].meta
+
+# AI / 编辑器工具目录
+.cursor/
+.cursor.meta
+
+# Mono 调试符号
+*.dll.mdb
+*.dll.mdb.meta
+
+# ScanScripts 运行输出
+Assets/Editor/EditorPython/ScanScripts/output.txt*

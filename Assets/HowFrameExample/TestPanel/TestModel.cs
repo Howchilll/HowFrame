@@ -32,7 +32,7 @@ public partial class TestPanel : PanelBase
         111.Log();
     }
 
-    private void ChangeLanguage()
+    partial void ChangeLanguage()
     {
         var lang= LangManager.GetLangContent(LangModuleEnum.UI,"TestPanel");
         var langs = lang.Split(',');

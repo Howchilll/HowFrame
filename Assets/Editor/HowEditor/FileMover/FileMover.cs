@@ -109,11 +109,8 @@ public class FileMover : EditorWindow
 
     private string ResolvePath(string rawPath)
     {
-        if (!string.IsNullOrEmpty(rawPath) && rawPath.Contains("."))
-        {
-            return PathEditor.FindPath(rawPath);
-        }
-        return rawPath;
+        // 支持 "类名.字段名" 形式引用 PathCreator 生成的路径常量，普通路径原样返回
+        return PathEditor.Resolve(rawPath);
     }
 
     private void MoveFileOrDirectory(string fromRaw, string toRaw)

@@ -1,8 +1,6 @@
-﻿{
+{
     "Namespace": "",
     "ClassName": "ResourcePath",
-    "JsonDir": "EditorPath.PathJson",
-    "CsDir": "EditorPath.PathCs",
     "Entries": [
         {
             "Key": "Audio",

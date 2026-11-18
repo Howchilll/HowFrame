@@ -30,7 +30,13 @@ public class ComponentInfo
 
 public class AutoUIWindow : EditorWindow
 {
-    private string scriptOutputPath = "Assets/Scripts/DMT_ACT_Implement/UI";
+    // 匹配 Model 中已生成的 ChangeLanguage（兼容旧版 private 写法与新版 partial 写法）
+    private const string ChangeLanguagePattern = @"(?:private|partial)\s+void\s+ChangeLanguage\(\)\s*\{[\s\S]*?\n\s*\}";
+
+    // 脚本输出根目录与模板目录都来自 HowFrame 设置
+    private static string scriptOutputPath => HowFrameSettings.instance.uiScriptDir;
+    private static string TemplatePath(string fileName) =>
+        Path.Combine(HowFrameSettings.instance.ResolvedAutoUITemplateDir ?? "", fileName).Replace('\\', '/');
     private List<GameObject> prefabReferences = new List<GameObject>();
     private GameObject prefabReference;
     private string panelName; // 从预制体名称自动提取
@@ -92,9 +98,6 @@ public class AutoUIWindow : EditorWindow
         window.prefabReferences = selectedPrefabs;
         window.prefabReference = null;
         window.panelName = null;
-
-        // 加载保存的设置
-        window.LoadSettings();
         window.Repaint();
     }
 
@@ -117,11 +120,6 @@ public class AutoUIWindow : EditorWindow
             .Distinct()
             .OrderBy(AssetDatabase.GetAssetPath)
             .ToList();
-    }
-    
-    private void OnDisable()
-    {
-        SaveSettings();
     }
     
     private void OnGUI()
@@ -155,25 +153,9 @@ public class AutoUIWindow : EditorWindow
         EditorGUILayout.Space(10);
         
         // 脚本输出路径
-        EditorGUILayout.LabelField("脚本输出路径", EditorStyles.label);
-        EditorGUILayout.BeginHorizontal();
-        scriptOutputPath = EditorGUILayout.TextField(scriptOutputPath);
-        if (GUILayout.Button("选择", GUILayout.Width(60)))
-        {
-            string path = EditorUtility.SaveFolderPanel("选择脚本输出路径", scriptOutputPath, "");
-            if (!string.IsNullOrEmpty(path))
-            {
-                if (path.StartsWith(Application.dataPath))
-                {
-                    scriptOutputPath = "Assets" + path.Substring(Application.dataPath.Length);
-                }
-                else
-                {
-                    EditorUtility.DisplayDialog("错误", "请选择 Assets 文件夹内的路径", "确定");
-                }
-            }
-        }
-        EditorGUILayout.EndHorizontal();
+        HowFrameEditorGUI.PathInfo("脚本输出路径", scriptOutputPath);
+        HowFrameEditorGUI.PathInfo("模板目录", HowFrameSettings.instance.ResolvedAutoUITemplateDir);
+        HowFrameEditorGUI.SettingsButton();
         
         EditorGUILayout.Space(10);
         
@@ -334,7 +316,7 @@ public class AutoUIWindow : EditorWindow
     
     private string GeneratePanelScript()
     {
-        string templatePath = "Assets/Editor/AutoUI/Template_Panel.cs.txt";
+        string templatePath = TemplatePath("Template_Panel.cs.txt");
         return LoadTemplateAndReplace(templatePath);
     }
     
@@ -799,7 +781,7 @@ public class AutoUIWindow : EditorWindow
         Debug.Log("========== 开始生成View脚本 ==========");
         Debug.Log($"组件数量: {components.Count}");
         
-        string templatePath = "Assets/Editor/AutoUI/Template_View.cs.txt";
+        string templatePath = TemplatePath("Template_View.cs.txt");
         string templateContent = LoadTemplateAndReplace(templatePath);
         Debug.Log($"模板内容长度: {templateContent.Length}");
         Debug.Log($"模板是否包含Define标记: {templateContent.Contains("//Define")}");
@@ -966,7 +948,7 @@ public class AutoUIWindow : EditorWindow
         Debug.Log("========== 开始生成Model脚本 ==========");
         Debug.Log($"组件数量: {components.Count}");
         
-        string templatePath = "Assets/Editor/AutoUI/Template_Model.cs.txt";
+        string templatePath = TemplatePath("Template_Model.cs.txt");
         string templateContent = LoadTemplateAndReplace(templatePath);
         
         // 检查文件是否存在
@@ -1043,8 +1025,7 @@ public class AutoUIWindow : EditorWindow
             templateContent = existingContent;
             
             // 移除旧的ChangeLanguage方法（如果存在），后面会重新生成
-            string oldChangeLangPattern = @"private\s+void\s+ChangeLanguage\(\)\s*\{[\s\S]*?\n\s*\}";
-            templateContent = Regex.Replace(templateContent, oldChangeLangPattern, "");
+            templateContent = Regex.Replace(templateContent, ChangeLanguagePattern, "");
         }
         
         // 收集所有Txt组件（用于生成ChangeLanguage）
@@ -1055,7 +1036,8 @@ public class AutoUIWindow : EditorWindow
         string changeLanguageCode = "";
         if (txtComponents.Count > 0)
         {
-            changeLanguageCode += "    private void ChangeLanguage()\n";
+            // partial：与 View 中的声明配对，由 PanelBase.WhenLanguageChanged 在切换语言时调用
+            changeLanguageCode += "    partial void ChangeLanguage()\n";
             changeLanguageCode += "    {\n";
             changeLanguageCode += $"        var lang= LangManager.GetLangContent(LangModuleEnum.UI,\"{panelName}\");\n";
             changeLanguageCode += "        var langs = lang.Split(',');\n";
@@ -1124,8 +1106,7 @@ public class AutoUIWindow : EditorWindow
             if (!string.IsNullOrEmpty(changeLanguageCode))
             {
                 // 如果已存在ChangeLanguage，先删除旧的
-                string oldChangeLangPattern = @"private\s+void\s+ChangeLanguage\(\)\s*\{[\s\S]*?\n\s*\}";
-                templateContent = Regex.Replace(templateContent, oldChangeLangPattern, "");
+                templateContent = Regex.Replace(templateContent, ChangeLanguagePattern, "");
                 
                 methodsToAdd += changeLanguageCode + "\n";
                 Debug.Log("ChangeLanguage方法已生成/更新");
@@ -1150,7 +1131,7 @@ public class AutoUIWindow : EditorWindow
     
     private string LoadTemplateAndReplace(string templatePath)
     {
-        string fullPath = Path.Combine(Application.dataPath, "..", templatePath);
+        string fullPath = HowFrameSettings.ToFullPath(templatePath);
         fullPath = Path.GetFullPath(fullPath);
         
         if (!File.Exists(fullPath))
@@ -1187,8 +1168,8 @@ public class AutoUIWindow : EditorWindow
             Debug.Log($"生成 Item 脚本: {itemClassName}");
             
             string itemPath = Path.Combine(panelDir, itemClassName + ".cs");
-            string templatePath = "Assets/Editor/AutoUI/Template_Item.cs.txt";
-            string templateContent = File.ReadAllText(Path.Combine(Application.dataPath, "..", templatePath), System.Text.Encoding.UTF8);
+            string templatePath = TemplatePath("Template_Item.cs.txt");
+            string templateContent = File.ReadAllText(HowFrameSettings.ToFullPath(templatePath), System.Text.Encoding.UTF8);
             templateContent = templateContent.Replace("{ITEM_NAME}", itemClassName);
             
             string defineCode = "";
@@ -1283,16 +1264,6 @@ public class AutoUIWindow : EditorWindow
                 Debug.Log($"Item 脚本已写入: {itemPath}");
             }
         }
-    }
-    
-    private void LoadSettings()
-    {
-        scriptOutputPath = EditorPrefs.GetString("AutoUI_ScriptOutputPath", "Assets/Scripts/DMT_ACT_Implement/UI");
-    }
-    
-    private void SaveSettings()
-    {
-        EditorPrefs.SetString("AutoUI_ScriptOutputPath", scriptOutputPath);
     }
 }
 #endif

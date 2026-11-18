@@ -27,11 +27,13 @@ Assets/
 │   ├── HowPath/             # 全局路径常量
 │   └── HowTools/            # 各功能模块助手（HowAsset/HowUI/HowEvent ...）
 ├── HowFrameExample/         # 用法示例集合（推荐作为接入参考）
-├── Editor/                  # 编辑器扩展（asmdef: HowEditor）
-│   ├── AutoUI/              # UI 自动绑定窗口
+├── HowFrameTests/           # 框架 EditMode 测试（asmdef: HowFrame.Tests.Editor）
+├── Editor/                  # 编辑器扩展
+│   ├── AutoUI/              # UI 自动绑定窗口 + 代码模板
 │   ├── EditorPython/        # 通过 C# 调用 Python 脚本的工具链
-│   └── HowEditor/           # 自定义窗口（EnumCreator / FileMover / KillAsset / PathCreator ...）
-├── HowEditorConfig/         # 编辑器配置（枚举 JSON、路径 JSON、UI 名表）
+│   ├── HowEditor/           # 自定义窗口（asmdef: HowEditor，仅编辑器）
+│   │   └── Settings/        # HowFrame 全局配置（Project Settings > HowFrame）
+│   └── HowEditorConfig/     # 编辑器配置数据（枚举 JSON、路径 JSON）
 ├── GameRes/                 # Addressables 资源（Audio/Instance/UI）
 ├── Resources/               # Resources 加载资源（UI 等）
 ├── Scenes/                  # 示例场景
@@ -44,41 +46,39 @@ Assets/
 
 ## 3. 启动与初始化流程
 
-入口挂载脚本：[GameInit.cs](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/GameInit.cs)
+入口挂载脚本：[GameInit.cs](../HowFrame/GameInit.cs)
 
 ```text
 GameInit.Awake()
    └── AwakeAsync()
          ├── BoolDic / FloatDic 注入
-         ├── HowInit.Init()             // 框架级初始化
-         │     └── AssetAssistant.LoadLabelsAsync("Instance", onComplete:
-         │           ├── AudioManager.Wake()
-         │           ├── CoroutineAssistant.Wake()
-         │           ├── DataAssistant.Wake()
-         │           ├── DebugAssistant.Wake()
-         │           ├── InputAssistant.Wake()
-         │           ├── LangManager.Wake()
-         │           ├── MonoAssistant.Wake()
-         │           ├── PropertyAssistant.Wake()
-         │           ├── SceneLoadAssistant.Wake()
-         │           ├── UIManager.Wake()
-         │           ├── TypeAssistant.Wake()
-         │           └── UpdateAssistant.Wake()
-         ├── LangManager.SetLanguage(...) // 语言包加载
-         └── AssetAssistant.LoadLabelsAsync(resourcesTags) // 业务资源预加载
+         ├── HowInit.Init()             // 框架级初始化（多次调用共享同一个任务）
+         │     ├── AssetAssistant.LoadLabelsAsync(HowInit.InstanceLabel = "Instance")
+         │     └── WakeSafe(...)        // 逐个 Wake，单个模块异常只记录、不中断
+         │           Debug → Type → Mono → Coroutine → Update → Property
+         │           → Data → Lang → Audio → Input → SceneLoad → UI
+         ├── LangManager.SetLanguage(...)                     // 语言包加载
+         └── AssetAssistant.LoadLabelsAsync(null, onProgress, resourcesTags) // 业务资源预加载（GameInit.Progress）
 ```
 
 ### 3.1 关键设计：延迟初始化（`Wake()`）
 
-- 大多数助手类提供 `Wake()` 方法，在 `HowInit.Init()` 回调中统一调用。
+- 大多数助手类提供 `Wake()` 方法，在 `HowInit.Init()` 中统一调用。
 - 内部通过 `_initialized` 标记防止重复初始化。
 - 依赖 Addressables 在资源加载完成后才能拿到 `Canvas` / `AudioMixer` / `InputActionAsset` 等资源。
+- 某个模块 `Wake` 抛异常时，`HowInit` 记录错误并继续初始化其余模块（`HowInit.FailedModules` 记录失败数）。
 
-### 3.2 阻塞 vs 异步
+### 3.2 等待初始化完成
 
-`GameInit` 提供 `blockOnAwake` 开关：
-- `true`：同步阻塞主线程直到初始化完成（适合场景启动）。
-- `false`：异步后台初始化（适合热更新/补丁场景）。
+初始化是异步的。**不要阻塞主线程等待**：Addressables / UnityWebRequest 都要在主线程推进，阻塞会死锁（旧版的 `blockOnAwake` 已移除）。
+
+| 需求 | 用法 |
+| --- | --- |
+| 框架就绪后做事 | `HowInit.WhenReady(() => ...)` / `await HowInit.Ready` / `HowInit.IsReady` |
+| 游戏（框架 + 语言 + 业务资源）就绪后做事 | `GameInit.WhenReady(() => ...)` / `await GameInit.Ready` / `GameInit.IsReady` |
+| 启动页进度条 | 读 `GameInit.Progress`（0~1） |
+
+`doneHide` / `doneShow` 可不填。
 
 ---
 
@@ -86,7 +86,7 @@ GameInit.Awake()
 
 ### 4.1 HowEnum —— 类型安全枚举系统
 
-> 详细文档：[HowEnumExplain.txt](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowEnum/HowEnumExplain.txt)
+> 详细文档：[HowEnumExplain.txt](../HowFrame/HowEnum/HowEnumExplain.txt)
 
 **核心类型**：
 
@@ -111,7 +111,7 @@ public record EnumKey<TTag> : EnumKeyBase { ... }
 | `NetEnum` | 网络协议 |
 | `UINameEnum` | UI 面板名 |
 
-**编辑器工具**：[EnumCreator](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor/EnumCreator/EnumCreator.cs)
+**编辑器工具**：[EnumCreator](../Editor/HowEditor/EnumCreator/EnumCreator.cs)
 - `Tools > Enum Creator` 打开可视化窗口。
 - 一键导出 JSON 配置 + C# 枚举类。
 
@@ -119,20 +119,20 @@ public record EnumKey<TTag> : EnumKeyBase { ... }
 
 ### 4.2 HowPath —— 全局路径常量
 
-位置：[HowFrame/HowPath](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowPath)
+位置：[HowFrame/HowPath](../HowFrame/HowPath)
 
-- `GlobalPath`：StreamingAssets、Lang、Config 等路径。
-- `EditorPath`：编辑器专用路径。
+- `GlobalPath`：StreamingAssets、Lang、Config 等运行时路径。
 - `ResourcePath`：Resources 资源路径。
+- 编辑器工具用的路径不在这里（原 `EditorPath` 已移除），统一放在 HowFrame 全局配置，见 5.0。
 - `UINames`：UI 面板名常量（与 `UINameEnum` 配合）。
 
-由 [PathCreator](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor/PathCreator/PathCreator.cs) 编辑器工具生成。
+由 [PathCreator](../Editor/HowEditor/PathCreator/PathCreator.cs) 编辑器工具生成。
 
 ---
 
 ### 4.3 HowAsset —— 资源加载三件套
 
-位置：[AssetAssistant.cs](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowAsset/AssetAssistant.cs)
+位置：[AssetAssistant.cs](../HowFrame/HowTools/HowAsset/AssetAssistant.cs)
 
 | 方法 | 来源 | 用途 |
 | --- | --- | --- |
@@ -140,19 +140,21 @@ public record EnumKey<TTag> : EnumKeyBase { ... }
 | `LoadAsset<T>(fileName)` | Resources | 同步加载 |
 | `AddressAsset<T>(address)` | Addressables | 异步单资源加载 |
 | `LoadLabelsAsync(...labels)` | Addressables | 按 Label 批量预加载并缓存 |
-| `AddressableGet<T>(name)` | 缓存 | 从缓存按名取（O(1)） |
+| `LoadLabelsAsync(onComplete, onProgress, ...labels)` | Addressables | 同上，带 0~1 总体进度回调 |
+| `IsLabelLoaded(label)` | 缓存 | Label 是否已加载 |
+| `AddressableGet<T>(name)` / `TryAddressableGet<T>(name, out asset)` | 缓存 | 从缓存按名取（O(1)） |
 | `ReleaseLabels(...)` | Addressables | 按 Label 卸载 |
 
 **设计要点**：
-- 通过 `asset.name` 作为缓存 key，避免重复加载。
-- Label 批量加载时记录所有 `AsyncOperationHandle`，便于整体释放。
-- 缓存与 Handle 分离，避免多 Label 共享资源被误清。
+- 通过 `asset.name` 作为缓存 key，避免重复加载；重名资源会警告并只保留先加载的。
+- 已加载 / 正在加载的 Label 再次请求时直接复用，不会重复加载。
+- 每个缓存项记录归属 Label：同一资源属于多个 Label 时，只有全部卸载后才移出缓存，既不会误清也不会留下已释放的引用。
 
 ---
 
 ### 4.4 HowUI —— UI 管理系统
 
-位置：[UIManager.cs](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowUI/UIManager.cs) 与 [PanelBase.cs](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowUI/PanelBase.cs)
+位置：[UIManager.cs](../HowFrame/HowTools/HowUI/UIManager.cs) 与 [PanelBase.cs](../HowFrame/HowTools/HowUI/PanelBase.cs)
 
 **核心抽象 `PanelBase`**：
 
@@ -163,22 +165,27 @@ public abstract class PanelBase : MonoBehaviour
     protected internal virtual void WhenShow();
     protected internal virtual void WhenHide();
     protected internal virtual void WhenShowWithParameter(object parameter);
+    protected internal virtual void WhenLanguageChanged(); // 首次创建及每次切换语言时调用
 }
 ```
 
 **`UIManager` 能力**：
 - `Show(...)` / `Hide(...)` / `Check(...)` / `HideAll(...)`，同时支持 `string` 与 `EnumKeyBase`。
+- 多层 Canvas：`Show(name, uiLevel)`，层级越大越晚渲染；`HideLevel(level)` 关闭一层。
 - 自动从 Addressables 加载 Prefab，通过 `TypeAssistant` 反射挂载 `PanelBase`。
 - 支持父子结构（`father` 参数）、参数透传（`WhenShowWithParameter`）。
+- **导航栈**：`Push(name, parameter, uiLevel, hidePrevious)` 打开并入栈；`Back()` 关闭栈顶并重新显示上一个（栈空返回 false）；`BackTo(name)`、`ClearStack()`、`StackTop`、`StackCount`。直接 `Show` 的面板不入栈。
+- **多语言刷新**：`LangManager.SetLanguage` 完成后自动调用所有面板的 `WhenLanguageChanged`。
 
-**UI 自动绑定窗口**：[AutoUI](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/AutoUI)
+**UI 自动绑定窗口**：[AutoUI](../Editor/AutoUI)
 - 一键扫描 Prefab 节点，自动生成 `View/Model/Panel` 模板脚本。
+- Model 中为文本组件生成 `partial void ChangeLanguage()`，View 模板在 `WhenLanguageChanged` 中调用它，切换语言即自动刷新。
 
 ---
 
 ### 4.5 HowEvent —— 事件系统
 
-位置：[EventAssistant.cs](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowEvent/EventAssistant/EventAssistant.cs)
+位置：[EventAssistant.cs](../HowFrame/HowTools/HowEvent/EventAssistant/EventAssistant.cs)
 
 提供两类事件总线：
 - `EventAssistant`：无参 `Action`，支持 `Subscribe / Unsubscribe / Invoke / ClearOne / ClearAll`。
@@ -194,18 +201,19 @@ public abstract class PanelBase : MonoBehaviour
 
 ### 4.6 HowLanguage —— 多语言系统
 
-位置：[LangManager.cs](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowLanguage/LangManager.cs)
+位置：[LangManager.cs](../HowFrame/HowTools/HowLanguage/LangManager.cs)
 
 - 以 `LangTypeEnum`（语种）× `LangModuleEnum`（模块）二维键加载 JSON。
-- 文件命名约定：`{LangName}_{ModuleName}_Lang.json`，存放于 `StreamingAssets/Config/Languages/`。
-- 提供 `GetLangContent(Module, key)` / `GetLangContent(key)`。
-- 由 [LanguageConfiger](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor/LanguageConfiger) 通过 Excel 序列化生成 JSON。
+- 文件命名约定：`{LangName}_{ModuleName}_Lang.json`，存放于 `StreamingAssets/{GlobalPath.LangPath}/`（默认 `StreamingAssets/Languages/`）。
+- 提供 `GetLangContent(Module, key)` / `GetLangContent(key)` / `TryGetLangContent(...)`；缺失的 key 返回 key 本身并只警告一次。
+- `CurrentLanguage`（`Ref`，可订阅）与 `OnLanguageChanged` 事件；切换时先整体加载再替换，不会读到一半新一半旧。
+- 由 [LanguageConfiger](../Editor/HowEditor/LanguageConfiger)（菜单 `Tools/HowFrame/Language Configer`）通过 Excel 序列化生成 JSON。
 
 ---
 
 ### 4.7 HowInput —— 输入系统封装
 
-位置：[InputAssistant.cs](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowInput/InputAssistant.cs)
+位置：[InputAssistant.cs](../HowFrame/HowTools/HowInput/InputAssistant.cs)
 
 - 基于 Unity 新输入系统 `InputActionAsset` (`HowInputActions`)。
 - `EnableMap / DisableMap / IsMapEnabled`：按 ActionMap 管理。
@@ -217,7 +225,7 @@ public abstract class PanelBase : MonoBehaviour
 
 ### 4.8 HowAudio —— 音频系统
 
-位置：[AudioManager.cs](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowAudio/AudioManager.cs)
+位置：[AudioManager.cs](../HowFrame/HowTools/HowAudio/AudioManager.cs)
 
 - 区分 `Music` / `Sound` 两类通道，使用 `AudioMixer` 控制音量。
 - 音乐支持淡出结束、音效池化复用。
@@ -228,22 +236,23 @@ public abstract class PanelBase : MonoBehaviour
 
 ### 4.9 HowData —— 数据持久化
 
-位置：[DataAssistant.cs](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowData/DataAssistant.cs)
+位置：[DataAssistant.cs](../HowFrame/HowTools/HowData/DataAssistant.cs)
 
 | 方法 | 用途 |
 | --- | --- |
-| `WriteData(obj, name, isJson, upperPath)` | 写入 `persistentDataPath`（MessagePack+XOR 或 JSON） |
-| `ReadData<T>(...)` | 反序列化读取 |
-| `LoadConfig<T>(fileName)` | 从 `StreamingAssets` 加载只读配置 |
-| `HasData(...)` | 检查文件是否存在 |
+| `WriteData(obj, name, isJson, upperPath)` | 写入 `persistentDataPath`（MessagePack+XOR 或 JSON），先写临时文件再替换 |
+| `ReadData<T>(...)` | 反序列化读取；不存在 / 损坏返回 default |
+| `HasData(...)` / `DeleteData(...)` | 检查 / 删除存档 |
+| `LoadConfig<T>(fileName)` | 同步加载 `StreamingAssets` 下的 JSON（Android / WebGL 不可用） |
+| `LoadConfigAsync<T>(fileName)` | 异步加载 `StreamingAssets` 下的 JSON（全平台） |
 
-二进制使用 `MessagePack` 序列化 + `Encryption.XOR` 异或加密；JSON 使用 `LitJson`。
+二进制使用 `MessagePack`（Contractless，普通类无需标注即可序列化，读写同一套选项）+ `Encryption.XOR` 异或；JSON 使用 `LitJson`。
 
 ---
 
 ### 4.10 HowSceneLoad —— 场景加载
 
-位置：[SceneLoadAssistant.cs](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowSceneLoad/SceneLoadAssistant.cs)
+位置：[SceneLoadAssistant.cs](../HowFrame/HowTools/HowSceneLoad/SceneLoadAssistant.cs)
 
 统一异步加载/卸载入口，支持进度回调与事件广播。
 
@@ -254,34 +263,34 @@ public abstract class PanelBase : MonoBehaviour
 
 ### 4.12 HowUpdate —— 每帧/定时更新
 
-位置：[HowUpdate](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowUpdate)
+位置：[HowUpdate](../HowFrame/HowTools/HowUpdate)
 
 - `UpdateAssistant` / `UpdateHelper`：注册/注销每帧回调，无需自己写 Mono。
 - `Updater`：核心驱动器。
 
 ### 4.13 HowType —— 运行时反射
 
-位置：[HowType](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowType)
+位置：[HowType](../HowFrame/HowTools/HowType)
 
 - `TypeAssistant.GetType(name)`：按类名字符串取 `Type`（用于 UI 自动挂载）。
 - `RuntimeGetAttribute`：自定义特性，配合 `TypeAssistant` 标注。
 
 ### 4.14 HowProperty / Ref —— 响应式属性
 
-位置：[HowProperty](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowProperty)
+位置：[HowProperty](../HowFrame/HowTools/HowProperty)
 
 - `PropertyAssistant.SetObj / GetObj`：全局响应式对象注册表。
 - `Ref<T>`：引用包装，可被 `PropertyAssistant` 观察。
 
 ### 4.15 HowThread —— 多线程
 
-位置：[HowThread](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowThread)
+位置：[HowThread](../HowFrame/HowTools/HowThread)
 
 - `ThreadAssistant` / `ThreadHelper`：把异步回调投递回主线程。
 
 ### 4.16 HowJObj —— Json 包装
 
-位置：[JObjAssistant.cs](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowJObj/JObjAssistant.cs)
+位置：[JObjAssistant.cs](../HowFrame/HowTools/HowJObj/JObjAssistant.cs)
 
 基于 `LitJson` 的轻量 Json 助手（与 `DataAssistant` 互补）。
 
@@ -320,38 +329,70 @@ public abstract class PanelBase : MonoBehaviour
 
 ## 5. 编辑器扩展（HowEditor）
 
-位置：[Editor/HowEditor](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor)
+位置：[Editor/HowEditor](../Editor/HowEditor)
 
-| 模块 | 能力 |
-| --- | --- |
-| [EnumCreator](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor/EnumCreator) | 可视化编辑枚举，生成 JSON + C# |
-| [PathCreator](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor/PathCreator) | 路径常量生成 |
-| [ExcelJson](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor/ExcelJson) | Excel ↔ JSON 互转、Config 转换 |
-| [LanguageConfiger](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor/LanguageConfiger) | 语言 Excel 序列化 |
-| [FileMover](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor/FileMover) | 批量移动/重命名资源 |
-| [KillAsset](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor/KillAsset) | 按规则清理无用资源 |
-| [AddressableBuilder](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor/AddressableBuilder) | Addressables 增量打包 |
+### 5.0 HowFrame 全局配置（路径依赖统一入口）
+
+位置：[Editor/HowEditor/Settings](../Editor/HowEditor/Settings)　入口：**Edit > Project Settings > HowFrame** 或菜单 `Tools/HowFrame/Settings`
+
+框架所有编辑器工具用到的路径都只在这里配置，保存在 `ProjectSettings/HowFrameSettings.asset`（纳入版本管理，团队共享；未保存过时使用代码中的默认值）。工具窗口里只读显示当前路径，并提供「在 HowFrame 设置中修改路径」按钮。
+
+| 分组 | 配置项 | 使用者 |
+| --- | --- | --- |
+| Python | Python 可执行文件（留空自动在 PATH 查找）、Py 工具生成目录 | PyCaller、PyTemplateGenerator |
+| 枚举 | JSON 目录、C# 输出目录、命名空间、是否生成 Convert / GetAll | EnumCreator |
+| 路径常量 | JSON 目录、C# 输出目录 | PathCreator |
+| 配置表 | Excel 目录、JSON 目录 | ConfigConverter、ExcelJson(Py) |
+| 多语言 | Excel 目录、JSON 目录 | LanguageConfiger、LanguageConfiger(Py) |
+| UI | Panel 脚本根目录、AutoUI 模板目录（留空用内置） | AutoUI、UIAutoBind |
+| Addressables | 自动收录根目录 | AddressableAutoIncremental |
+| KillAsset | 清理目标目录、依赖扫描起点、忽略规则 | KillAsset |
+
+约定：
+- 相对路径都相对**工程根目录**（Assets 的上一级），也可填绝对路径；`HowFrameSettings.ToFullPath()` 统一解析。
+- 框架**自带**的文件（AutoUI 模板、Python 脚本）不写死路径，按脚本名定位（`HowFrameSettings.GetScriptDir`），框架放在 `Assets/` 或以 UPM 包放在 `Packages/` 都能找到。
+- 新增编辑器工具需要路径时，请在 `HowFrameSettings` 加字段，不要在工具里写死 `Assets/...`。
+
+| 模块 | 菜单 | 能力 |
+| --- | --- | --- |
+| [EnumCreator](../Editor/HowEditor/EnumCreator) | `Tools/Enum Creator` | 可视化编辑枚举，生成 JSON + C# |
+| [PathCreator](../Editor/HowEditor/PathCreator) | `Tools/Path Creator` | 路径常量生成 |
+| [ConfigConverter](../Editor/HowEditor/ExcelJson) | `Tools/HowFrame/Config Converter` | Excel ↔ JSON 批量互转 |
+| [LanguageConfiger](../Editor/HowEditor/LanguageConfiger) | `Tools/HowFrame/Language Configer` | 扫描 `GetLangContent` 调用更新语言 Excel，并导出 JSON |
+| [FileMover](../Editor/HowEditor/FileMover) | （已隐藏） | 批量移动/删除文件，支持 `类名.字段名` 引用路径常量 |
+| [KillAsset](../Editor/HowEditor/KillAsset) | `Tools/KillAsset` | 清理目标目录中未被引用的资源（删除前确认，移到系统回收站） |
+| [AddressableBuilder](../Editor/HowEditor/AddressableBuilder) | 自动 | 收录根目录下的资源自动加入 Addressables，按一级子目录分组 |
 
 ### 5.1 AutoUI 自动绑定窗口
 
-位置：[Editor/AutoUI](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/AutoUI)
+位置：[Editor/AutoUI](../Editor/AutoUI)
 
 针对 Prefab：
 - 扫描节点 → 按命名生成 `View`（视图层）/ `Model`（数据层）/ `Panel`（逻辑层）模板。
-- 模板存放在同目录的 `Template_*.cs.txt`。
+- 模板默认使用同目录的 `Template_*.cs.txt`，可在 HowFrame 设置里换成项目自己的模板目录。
 
 ### 5.2 EditorPython（C# ↔ Python 桥接）
 
-位置：[Editor/EditorPython](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/EditorPython)
+位置：[Editor/EditorPython](../Editor/EditorPython)
 
-- `PyCaller`：通过 `Process` 调用 Python 脚本。
-- 子工具：
-  - `DependencyManager`：依赖关系管理。
+- `PyCaller`：通过 `Process` 调用 Python 脚本，解释器来自 HowFrame 设置。
+- 子工具（菜单 `Tools/PyFunctions/...`）：
   - `ExcelJson`：Python 版 Excel ↔ JSON。
   - `LanguageConfiger`：Python 版语言配置生成。
-  - `ScanScripts`：脚本扫描。
+  - `ScanScripts`：统计目录下脚本数 / 行数 / 方法数。
+- `PyTemplateGenerator`：生成新的 Python 工具骨架（C# 窗口 + .py + parameters.json）到「Py 工具生成目录」。
 
-每个工具都附带 `parameters.json` 和 `requirements.txt`，可独立运行。
+内置工具的目录参数来自 HowFrame 设置，窗口只记住操作模式（EditorPrefs）。依赖见各工具的 `requirements.txt`。
+
+### 5.3 测试
+
+位置：[HowFrameTests/Editor](../HowFrameTests/Editor)。Window > General > Test Runner > EditMode 运行，或命令行：
+
+```
+Unity.exe -batchmode -projectPath <工程> -runTests -testPlatform EditMode -assemblyNames HowFrame.Tests.Editor -testResults results.xml
+```
+
+覆盖：配置路径解析与内置文件定位、PathEditor、DataAssistant 读写 / 覆盖 / 删除、LangManager 缺失 key 回退、EnumKey 转换、UIManager 空栈 Back。
 
 ---
 
@@ -375,7 +416,7 @@ public abstract class PanelBase : MonoBehaviour
 
 ## 7. 示例（HowFrameExample）
 
-位置：[HowFrameExample](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrameExample)
+位置：[HowFrameExample](../HowFrameExample)
 
 按"一个助手类一个示例"组织：
 
@@ -408,9 +449,10 @@ public abstract class PanelBase : MonoBehaviour
 
 ## 9. 维护与扩展建议
 
-- **新模块**：在 `HowTools/HowXxx/` 下新增助手类，统一提供 `Wake()`、`namespace HowFrame`。
+- **新模块**：在 `HowTools/HowXxx/` 下新增助手类，统一提供 `Wake()`、`namespace HowFrame`，并在 `HowInit.InitCore` 里用 `WakeSafe` 注册。
+- **新编辑器工具**：需要的路径加到 `HowFrameSettings`，窗口里用 `HowFrameEditorGUI.PathInfo` 展示，不要写死 `Assets/...`。
 - **新枚举**：走 `EnumCreator`，禁止手改生成的 `*.cs`。
-- **新语言**：在 `LangTypeEnum` 加项 + `StreamingAssets/Config/Languages/` 下放对应 JSON。
+- **新语言**：在 `LangTypeEnum` 加项 + 语言 JSON 目录（默认 `StreamingAssets/Languages/`）下放对应 JSON。
 - **新 UI**：在 `UINameEnum` 注册 → Prefab 放 `GameRes/UI/` 并打 Addressables Label。
 - **新依赖**：放入 `Assets/Packages/`（已使用本地包形式），并在 `Packages/manifest.json` 中登记。
 
@@ -418,12 +460,13 @@ public abstract class PanelBase : MonoBehaviour
 
 ## 10. 相关文档索引
 
-- [HowEnum 系统详解](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowEnum/HowEnumExplain.txt)
-- [EditorPython / ExcelJson README](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/EditorPython/ExcelJson/README.md)
-- [GameInit 入口](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/GameInit.cs)
-- [HowInit 总初始化](file:///Users/Apple/UnityProject/HowFrame/Assets/HowFrame/HowTools/HowInit/HowInit.cs)
-- [EnumCreator 窗口](file:///Users/Apple/UnityProject/HowFrame/Assets/Editor/HowEditor/EnumCreator/EnumCreator.cs)
+- [HowEnum 系统详解](../HowFrame/HowEnum/HowEnumExplain.txt)
+- [EditorPython / ExcelJson README](../Editor/EditorPython/ExcelJson/README.md)
+- [GameInit 入口](../HowFrame/GameInit.cs)
+- [HowInit 总初始化](../HowFrame/HowTools/HowInit/HowInit.cs)
+- [EnumCreator 窗口](../Editor/HowEditor/EnumCreator/EnumCreator.cs)
+- [HowFrame 全局配置](../Editor/HowEditor/Settings/HowFrameSettings.cs)
 
 ---
 
-> 最后更新：2026-09-07
+> 最后更新：2026-11-18

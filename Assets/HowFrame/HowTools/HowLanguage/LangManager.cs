@@ -1,110 +1,117 @@
+using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
-using static HowFrame.DataAssistant;
 using UnityEngine;
 using HowEnum;
 using LitJson;
 
-
 namespace HowFrame
 {
-
-public static class LangManager
-{
-    private static Ref<EnumKey<LangTypeEnum.Tag>> NowLang = new();
-    public static List<EnumKey<LangModuleEnum.Tag>> ModuleList;
-    private static Dictionary<EnumKey<LangModuleEnum.Tag>, Dictionary<string, string>> landic = new Dictionary<EnumKey<LangModuleEnum.Tag>, Dictionary<string, string>>();
-    private static bool _initialized = false;
-
-    private static string _langName;
-
-    
-    public static string GetLangContent(EnumKey<LangModuleEnum.Tag> LangModule,string key)
+    /// <summary>
+    /// 多语言管理：按 语种(LangTypeEnum) × 模块(LangModuleEnum) 加载
+    /// StreamingAssets/{GlobalPath.LangPath}/{语种}_{模块}_Lang.json。
+    /// 切换语言后通过 OnLanguageChanged / CurrentLanguage 通知，UIManager 会据此刷新所有面板（PanelBase.WhenLanguageChanged）。
+    /// </summary>
+    public static class LangManager
     {
-        Dictionary<string, string> moduleDict;
-        moduleDict = landic[LangModule];
-        if (moduleDict == null)
+        /// <summary>当前语言（可订阅 OnChanged）</summary>
+        public static readonly Ref<EnumKey<LangTypeEnum.Tag>> CurrentLanguage = new();
+
+        /// <summary>语言切换并加载完成后触发</summary>
+        public static event Action OnLanguageChanged;
+
+        public static List<EnumKey<LangModuleEnum.Tag>> ModuleList;
+
+        private static Dictionary<EnumKey<LangModuleEnum.Tag>, Dictionary<string, string>> landic =
+            new Dictionary<EnumKey<LangModuleEnum.Tag>, Dictionary<string, string>>();
+
+        // 同一个缺失的 key 只警告一次，避免每帧刷屏
+        private static readonly HashSet<string> _reportedMissing = new HashSet<string>();
+        private static bool _initialized;
+
+        /// <summary>取指定模块下的文本；缺失时返回 key 本身并警告一次</summary>
+        public static string GetLangContent(EnumKey<LangModuleEnum.Tag> langModule, string key)
         {
-            Debug.LogError(string.Join(",","Null ModuleDict",LangModule.name,_langName));
+            if (TryGetLangContent(langModule, key, out var content)) return content;
+            ReportMissing(langModule?.name, key);
+            return key;
         }
 
-        if (!moduleDict.ContainsKey(key))
+        /// <summary>取 Default 模块下的文本；缺失时返回 key 本身并警告一次</summary>
+        public static string GetLangContent(string key)
         {
-            Debug.LogError(string.Join(",", "Null Content in", LangModule.name, _langName,key));
-        }
-        var Content = moduleDict[key];
-        if (Content == null)
-        {
-            Debug.LogError(string.Join(",", "Null Content in", LangModule.name, _langName,key));
-        }
-        return Content;
-    }
-    public static string GetLangContent(string key)
-    {
-        var ModuleDict = landic[LangModuleEnum.Default];
-        if (ModuleDict == null)
-        {
-            Debug.LogError("Null ModuleDict");
+            return GetLangContent(LangModuleEnum.Default, key);
         }
 
-        var Content = ModuleDict[key];
-        if (Content == null)
+        public static bool TryGetLangContent(EnumKey<LangModuleEnum.Tag> langModule, string key, out string content)
         {
-            Debug.LogError("Null Cantent");
+            content = null;
+            if (langModule == null || key == null) return false;
+            return landic.TryGetValue(langModule, out var moduleDict) && moduleDict != null &&
+                   moduleDict.TryGetValue(key, out content) && content != null;
         }
-        return Content;
-    }
 
-    public static async Task SetLanguage(EnumKey<LangTypeEnum.Tag> aimType = null)
-    {
-        aimType ??= LangTypeEnum.English;
-        string langName = aimType.name;
-        _langName=langName;
-        foreach (var item in ModuleList)
+        /// <summary>切换语言并加载所有模块的语言文件；为空时使用 English</summary>
+        public static async Task SetLanguage(EnumKey<LangTypeEnum.Tag> aimType = null)
         {
-            string moduleName =item.name;
-            string fileName = $"{langName}_{moduleName}_Lang.json";
-            string pathName =GlobalPath.LangPath+ "/" + fileName;
+            Wake();
+            aimType ??= LangTypeEnum.English;
+            string langName = aimType.name;
 
-            
-            if (!landic.ContainsKey(item))
-                landic[item] = new Dictionary<string, string>();
-
-            TextAsset langText = await AssetAssistant.ImportAsset<TextAsset>(pathName);
-
-            // ✅ 反序列化成字典
-            if (langText != null && !string.IsNullOrEmpty(langText.text))
+            // 先加载到新字典，全部完成后再整体替换，避免加载途中读到一半新一半旧
+            var newDic = new Dictionary<EnumKey<LangModuleEnum.Tag>, Dictionary<string, string>>();
+            foreach (var module in ModuleList)
             {
+                string fileName = $"{langName}_{module.name}_Lang.json";
+                string pathName = GlobalPath.LangPath + "/" + fileName;
+                newDic[module] = new Dictionary<string, string>();
+
+                TextAsset langText = await AssetAssistant.ImportAsset<TextAsset>(pathName);
+                if (langText == null || string.IsNullOrEmpty(langText.text))
+                {
+                    Debug.LogWarning($"语言文件未找到: {pathName}");
+                    continue;
+                }
+
                 try
                 {
                     var dic = JsonMapper.ToObject<Dictionary<string, string>>(langText.text);
-
-                    if (dic != null)
-                    {
-                        landic[item] = dic;
-                    }
+                    if (dic != null) newDic[module] = dic;
                 }
-                catch (System.Exception ex)
+                catch (Exception ex)
                 {
                     Debug.LogError($"语言文件解析错误: {fileName}\n{ex}");
                 }
             }
-            else
+
+            landic = newDic;
+            _reportedMissing.Clear();
+            CurrentLanguage.Value = aimType;
+
+            var callbacks = OnLanguageChanged;
+            if (callbacks == null) return;
+            foreach (Action callback in callbacks.GetInvocationList())
             {
-                Debug.LogWarning($"语言文件未找到: {pathName}");
+                try { callback(); }
+                catch (Exception e) { Debug.LogError($"[LangManager] OnLanguageChanged 回调异常: {e}"); }
             }
         }
-    }
 
-    /// <summary>
-    /// 初始化 LangManager（延迟初始化，在资源加载完成后调用）
-    /// </summary>
-    public static void Wake()
-    {
-        if (_initialized) return; // 防止重复初始化
-        ModuleList = LangModuleEnum.GetAll();
-        _initialized = true;
+        /// <summary>
+        /// 初始化 LangManager（延迟初始化，在资源加载完成后调用）
+        /// </summary>
+        public static void Wake()
+        {
+            if (_initialized) return; // 防止重复初始化
+            ModuleList = LangModuleEnum.GetAll();
+            _initialized = true;
+        }
+
+        private static void ReportMissing(string module, string key)
+        {
+            string id = module + "/" + key;
+            if (!_reportedMissing.Add(id)) return;
+            Debug.LogWarning($"[LangManager] 缺少文本: 语言={CurrentLanguage.Value?.name ?? "未加载"} 模块={module} key={key}");
+        }
     }
-}
 }

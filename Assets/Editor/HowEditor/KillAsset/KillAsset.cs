@@ -11,12 +11,10 @@ using LitJson;
 
 /// <summary>
 /// 统一的资源清理工具：扫描未使用的资源并删除
-/// 配置通过 rule.json 文件管理
+/// 规则（起点目录 / 目标目录 / 忽略规则）在 Project Settings > HowFrame 中配置
 /// </summary>
 public static class KillAsset
 {
-    private static string RuleJsonPath => Path.Combine(Application.dataPath, "Editor", "HowEditor", "KillAsset", "rule.json");
-
     [MenuItem("Tools/KillAsset")]
     public static void Execute()
     {
@@ -26,7 +24,7 @@ public static class KillAsset
             KillAssetRule rule = LoadRule();
             if (rule == null)
             {
-                Debug.LogError($"无法加载配置文件: {RuleJsonPath}");
+                Debug.LogError("无法读取 KillAsset 规则，请检查 Project Settings > HowFrame");
                 return;
             }
 
@@ -60,27 +58,26 @@ public static class KillAsset
                 return;
             }
 
-            // 安全检查：如果待删除的资源数量过多，需要确认
+            // 安全检查：删除前总是确认；占比过高时额外警告
             string targetAssetPathUnity = ConvertToUnityPath(rule.targetAssetPath);
-            if (!string.IsNullOrEmpty(targetAssetPathUnity))
+            HashSet<string> targetAssets = string.IsNullOrEmpty(targetAssetPathUnity)
+                ? new HashSet<string>()
+                : GetAllAssetsInPath(targetAssetPathUnity);
+            float deleteRatio = targetAssets.Count > 0 ? (float)filteredAssets.Count / targetAssets.Count : 1f;
+
+            string preview = string.Join("\n", filteredAssets.Take(15));
+            if (filteredAssets.Count > 15) preview += $"\n... 以及另外 {filteredAssets.Count - 15} 个";
+            string message = (deleteRatio > 0.5f ? $"⚠ 警告：待删除资源占目标文件夹的 {deleteRatio:P1}！\n\n" : "") +
+                             $"目标文件夹: {targetAssetPathUnity}\n" +
+                             $"总资源数: {targetAssets.Count}\n" +
+                             $"待删除数: {filteredAssets.Count}\n\n" +
+                             $"{preview}\n\n" +
+                             "资源会被移到系统回收站，可从回收站恢复。是否继续？";
+
+            if (!EditorUtility.DisplayDialog("KillAsset 删除确认", message, "移到回收站", "取消"))
             {
-                HashSet<string> targetAssets = GetAllAssetsInPath(targetAssetPathUnity);
-                float deleteRatio = (float)filteredAssets.Count / targetAssets.Count;
-                
-                if (deleteRatio > 0.5f)
-                {
-                    string message = $"警告：将要删除 {filteredAssets.Count} 个资源，占目标文件夹的 {deleteRatio:P1}！\n\n" +
-                                   $"目标文件夹: {targetAssetPathUnity}\n" +
-                                   $"总资源数: {targetAssets.Count}\n" +
-                                   $"待删除数: {filteredAssets.Count}\n\n" +
-                                   $"是否继续？";
-                    
-                    if (!EditorUtility.DisplayDialog("危险操作确认", message, "继续删除", "取消"))
-                    {
-                        Debug.Log("用户取消了删除操作。");
-                        return;
-                    }
-                }
+                Debug.Log("用户取消了删除操作。");
+                return;
             }
 
             // 3. 删除资源
@@ -100,62 +97,17 @@ public static class KillAsset
     }
 
     /// <summary>
-    /// 加载配置文件
+    /// 从 HowFrame 设置构建清理规则
     /// </summary>
     private static KillAssetRule LoadRule()
     {
-        string jsonPath = RuleJsonPath;
-        if (!File.Exists(jsonPath))
+        var settings = HowFrameSettings.instance;
+        return new KillAssetRule
         {
-            Debug.LogWarning($"配置文件不存在，创建默认配置: {jsonPath}");
-            CreateDefaultRule(jsonPath);
-            return null;
-        }
-
-        try
-        {
-            string jsonContent = File.ReadAllText(jsonPath);
-            KillAssetRule rule = JsonMapper.ToObject<KillAssetRule>(jsonContent);
-            return rule;
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"读取配置文件失败: {e.Message}");
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// 创建默认配置文件
-    /// </summary>
-    private static void CreateDefaultRule(string jsonPath)
-    {
-        KillAssetRule defaultRule = new KillAssetRule
-        {
-            entryPaths = new List<string>
-            {
-                "Assets/Scenes",
-                "Assets/Resources",
-                "Assets/GameRes"
-            },
-            targetAssetPath = "Assets/Art",
-            ignoreRules = new List<string>
-            {
-                "*.mat",
-                "*.meta"
-            }
+            entryPaths = new List<string>(settings.killAssetEntryDirs ?? new List<string>()),
+            targetAssetPath = settings.killAssetTargetDir,
+            ignoreRules = new List<string>(settings.killAssetIgnoreRules ?? new List<string>()),
         };
-
-        try
-        {
-            string jsonContent = JsonMapper.ToJson(defaultRule);
-            File.WriteAllText(jsonPath, jsonContent);
-            Debug.Log($"已创建默认配置文件: {jsonPath}");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"创建默认配置文件失败: {e.Message}");
-        }
     }
 
     /// <summary>
@@ -415,8 +367,8 @@ public static class KillAsset
                     continue;
                 }
 
-                // 使用 AssetDatabase.DeleteAsset 删除资源（会自动删除 .meta 文件）
-                if (AssetDatabase.DeleteAsset(assetPath))
+                // 移到系统回收站（连同 .meta），误删可恢复
+                if (AssetDatabase.MoveAssetToTrash(assetPath))
                 {
                     deletedCount++;
                 }

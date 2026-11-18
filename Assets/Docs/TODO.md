@@ -6,7 +6,7 @@
 
 ## 0. 阅读指引
 
-- 标记 ✅ = 已完成　🚧 = 进行中　📌 = 已纳入计划
+- 标记 ✅ = 已完成　🚧 = 进行中　📌 = 已纳入计划　`[x]` 已完成　`[~]` 部分完成
 - 标记 **[P0/P1/P2]** = 优先级
   - **P0**：影响面大、改动可控、立刻受益。
   - **P1**：明显提升体验或稳定性，但需要较多设计/重构。
@@ -29,7 +29,7 @@
 
 ### 1.2 HowAsset 资源系统
 
-- [ ] **[P0]** `LoadLabelsAsync` 增加进度回调：`onProgress(label, percent)` + `EventAssistant` 事件，便于启动页显示加载条。
+- [x] **[P0]** `LoadLabelsAsync` 增加进度回调：`LoadLabelsAsync(onComplete, onProgress, labels)`，`GameInit.Progress` 暴露给启动页（2026-11-18）
   - 涉及：`Assets/HowFrame/HowTools/HowAsset/AssetAssistant.cs`
 - [ ] **[P1]** 缓存自动回收：当前缓存只有手动 `ReleaseLabels`。引入 LRU + 引用计数，长时间未用自动卸载。
 - [ ] **[P1]** 统一按路径加载：把 `Resources/` 与 `StreamingAssets/` 差异藏掉，提供 `AssetPath.Get<T>(relativePath)`，调用方无需关心来源。
@@ -38,7 +38,7 @@
 
 ### 1.3 HowUI UI 管理系统
 
-- [ ] **[P0]** UI 栈管理：在 `UIManager` 字典之上加 `Stack<EnumKeyBase>`，支持 `Back / Push / Pop`。
+- [x] **[P0]** UI 栈管理：`UIManager.Push / Back / BackTo / ClearStack / StackTop`（2026-11-18）
   - 涉及：`Assets/HowFrame/HowTools/HowUI/UIManager.cs`
 - [ ] **[P1]** 层级与模态：Canvas 下子层级排序、模态遮罩统一处理（`Modal Mask`）。
 - [ ] **[P1]** 动效生命周期抽象：把开/关动画从 `WhenShow/WhenHide` 解耦，提供 `ITransition`。
@@ -105,9 +105,9 @@
 
 - [ ] **[P0]** 统一日志 / 上报：抽 `HowLog`，支持 Editor / Console / File / Remote 多渠道。
 - [ ] **[P0]** 运行时配置中心：把 `GameInit.BoolDic / FloatDic` 升级为强类型 `RuntimeConfig`，支持热更。
-- [ ] **[P1]** 框架单元测试基座：新建 `HowTest` 助手 + 一组 PlayMode/EditMode 测试。
+- [~] **[P1]** 框架单元测试基座：已有 EditMode 测试 `Assets/HowFrameTests/Editor`（27 项）；PlayMode（需 Addressables / 场景）待补
 - [ ] **[P1]** 文档自动化：从 `///` 注释 + 反射生成 `Docs/` 子文档，跟代码同步。
-- [ ] **[P1]** 统一异常处理：抽 `HowException`，在 `Wake()` 链路中兜底，避免单个模块异常导致初始化中断。
+- [x] **[P1]** `Wake()` 链路兜底：`HowInit.WakeSafe` 单模块异常只记录不中断，`HowInit.FailedModules` 计数（2026-11-18）
 - [ ] **[P2]** 性能基准：常用 API 加 Benchmark，Unity Test Runner 跑回归曲线。
 
 ---
@@ -189,7 +189,13 @@
 ### 4.1 变更记录
 
 - 2026-09-07：初稿，从框架解读梳理出 12 类运行时 TODO + 7 类编辑器 TODO。
+- 2026-11-18：
+  - 新增 HowFrame 全局配置（Project Settings > HowFrame），所有编辑器工具路径集中配置，移除 `EditorPath` 与各工具自带的路径字段 / parameters.json / rule.json。
+  - 清理：Python 缓存、测试枚举、重复的 UINameEnum.json、缺脚本的 DependencyManager；HowEditor asmdef 改为仅编辑器。
+  - 运行时：AssetAssistant 缓存归属 + Label 幂等加载 + 进度；HowInit 异常隔离与就绪信号；GameInit 去掉会死锁的 blockOnAwake；
+    UIManager 导航栈 + 多语言刷新（PanelBase.WhenLanguageChanged）；LangManager 缺失 key 回退 + 切换通知；DataAssistant 读写选项统一 + 原子写入 + LoadConfigAsync。
+  - 编辑器修复：ConfigConverter / LanguageConfiger 补菜单入口；KillAsset 删除前确认并移到回收站；Addressables 根目录前缀误匹配；FileMover 带扩展名路径被误当反射索引。
 
 ---
 
-> 最后更新：2026-09-07
+> 最后更新：2026-11-18
